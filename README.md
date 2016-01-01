@@ -10,6 +10,7 @@ A typecho plugin for the beautiful html5 music player https://github.com/DIYgod/
 
 ## Install
 安装前请确保插件目录可写（保存缓存用，否则会让博客加载缓慢）
+
 Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/plugins 目录，在后台启用即可
 
 ## Usage
@@ -96,7 +97,8 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 ```
 
 清空生成的歌词和api获取的图片链接的缓存
-前往插件设置页面点击按钮即可
+
+前往插件设置页面点击红色按钮即可
 
 ## LICENSE
 
