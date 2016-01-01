@@ -19,6 +19,7 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 [mp3]mp3文件地址|title=标题|artist=艺术家[/mp3]
 ```
 如果需要歌词，有两种方式：
+
 1. 直接粘贴歌词的链接
 ```
 [mp3]mp3文件地址|lrc=lrc文件地址|title=标题|artist=艺术家[/mp3]
@@ -27,7 +28,8 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 ```
 [mp3]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3|lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|title=Boulevard Of Broken Dreams|artist=Green Day[/mp3]
 ```
-2. 手动粘贴lrc歌词
+
+2 . 手动粘贴lrc歌词
 ```
 [mp3]mp3文件地址|title=标题|artist=艺术家[lrc]歌词文本[/lrc][/mp3]
 ```
@@ -95,6 +97,8 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 ```
 [mp3]mp3文件地址|lrc=lrc文件地址|title=标题|artist=艺术家|cover=false[/mp3]
 ```
+这时候出现的就是默认的封面图片了~~~
+
 
 清空生成的歌词和api获取的图片链接的缓存
 
