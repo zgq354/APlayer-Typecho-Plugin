@@ -268,7 +268,7 @@ EOF;
 		$options['music']['title'] = isset($playerOptions['title']) ? $playerOptions['title'] : '未知';
 		$options['music']['author'] = isset($playerOptions['artist']) ? $playerOptions['artist'] : '未知';
 		$options['music']['url'] = $source;
-		$options['music']['pic'] = isset($playerOptions['cover']) ? $playerOptions['cover'] : Helper::options()->pluginUrl.'/APlayer/assets/default_cover.jpg';
+		$options['music']['pic'] = isset($playerOptions['cover']) ? $playerOptions['cover'] : '';
 		
 		//输出代码
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">

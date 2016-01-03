@@ -9,7 +9,8 @@ A typecho plugin for the beautiful html5 music player https://github.com/DIYgod/
 3. 与APlayer保持同步更新
 
 ## Install
-安装前请确保插件目录可写（保存缓存用，否则会让博客加载缓慢）
+安装前请确保插件中的cache目录可写（保存缓存用，否则会让博客加载缓慢）
+主机需支持curl扩展，否则将不能自动查找封面和从url中获取歌词
 
 Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/plugins 目录，在后台启用即可
 
