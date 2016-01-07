@@ -11,7 +11,9 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  */
 class APlayer_Plugin implements Typecho_Plugin_Interface
 {
+	//此变量用以在文章中插入多个播放器的时候将播放器区分开来
 	protected static $playerID = 0;
+	
 	/**
 	 * 激活插件方法,如果激活失败,直接抛出异常
 	 * 
@@ -102,7 +104,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	public static function personalConfig(Typecho_Widget_Helper_Form $form) {}
 
 	/**
-	 * 头部css挂载
+	 * 头部css挂载,定义参数的变量
 	 * 
 	 * @return void
 	 */
@@ -113,8 +115,9 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 <script>var aPlayers = [];var aPlayerOptions = [];</script>
 ';
 	}
+	
 	/**
-	 * 尾部js
+	 * 尾部js，解析文章中的播放器参数并生成播放器的html
 	 *
 	 *
 	 * @return void
@@ -141,6 +144,7 @@ for(var i=0;i<len;i++){
 </script>
 EOF;
 	 }
+	 
 	/**
 	 * MD兼容性过滤
 	 * 
@@ -286,10 +290,15 @@ EOF;
 		return $playerCode;
 
 	}
-
+	
+	/**
+	 * 通过关键词从豆瓣获取专辑封面链接，当缓存存在时则直接读取缓存
+	 * 
+	 * @param string $words
+	 * @return boolean|string
+	 */
 	private static function getcover($words){
-		//缓存文件夹
-		$cachedir = dirname(__FILE__)."/cache";
+		
 		$key = 'cover_'.md5($words);
 
 		if($g = self::cache_get($key)){
@@ -314,10 +323,13 @@ EOF;
 
 	}
 
-	//获取歌词函数
+	/**
+	 * 通过url获取歌词内容，若缓存存在就直接读取缓存
+	 * 
+	 * @param string $url
+	 * @return boolean|string
+	 */
 	private static function getlrc($url){
-		//存放歌词缓存文件夹
-		$cachedir = dirname(__FILE__)."/cache";
 		$key = 'lrc_'.md5($url);
 		if($g = self::cache_get($key)){
 			if(!isset($g[0])) return false;
@@ -332,7 +344,13 @@ EOF;
 		
 	}
 
-	//简单的文件缓存
+	/**
+	 * 缓存写入
+	 * 
+	 * @param unknown $key
+	 * @param unknown $value
+	 * @return number
+	 */
 	private static function cache_set($key, $value){
 		$cachedir = dirname(__FILE__)."/cache";
 
@@ -342,7 +360,12 @@ EOF;
 		return $status;
 	}
 
-	//简单的文件缓存
+	/**
+	 * 缓存读取
+	 * 
+	 * @param unknown $key
+	 * @return mixed|boolean
+	 */
 	private static function cache_get($key){
 		$cachedir = dirname(__FILE__)."/cache";
 
@@ -354,7 +377,12 @@ EOF;
 		}
 	}
 
-	//加载文件
+	/**
+	 * url抓取,两种方式,优先用curl,当主机不支持curl时候采用file_get_contents
+	 * 
+	 * @param unknown $url
+	 * @return boolean|mixed
+	 */
 	private static function fetch_url($url){
 
 		if(function_exists('curl_init')){
@@ -367,6 +395,12 @@ EOF;
 			if ($httpCode != 200) return false;
 			return $output;
 		}else{
+			//若主机不支持openssl则file_get_contents不能打开https的url
+			if($result = @file_get_contents($url)){
+				if (strpos($http_response_header[0],'200')){
+					return $result;
+				}
+			}
 			return false;
 		}
 	}
