@@ -10,6 +10,14 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
+
+//support the boolval in old php
+if (!function_exists('boolval')) {
+	function boolval($val) {
+		return (bool) $val;
+	}
+}
+
 class APlayer_Plugin implements Typecho_Plugin_Interface
 {
 	//此变量用以在文章中插入多个播放器的时候将播放器区分开来
