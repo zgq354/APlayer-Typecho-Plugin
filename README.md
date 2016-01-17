@@ -16,28 +16,50 @@ A typecho plugin for the beautiful html5 music player https://github.com/DIYgod/
 Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/plugins 目录，在后台启用即可
 
 ## Usage
-在文章编辑页面中，在要插入播放器的部分输入以下代码：
+
+基本格式：
+
+单曲播放器:
 ```
-[mp3]mp3文件地址|title=标题|artist=艺术家[/mp3]
+[mp3 属性1=值1|属性2=值2|属性3=值3]mp3文件地址[/mp3]
+```
+播放列表:
+
+```
+[music 属性1=值1|属性2=值2|属性3=值3]
+[mp3 属性1=值1|属性2=值2|属性3=值3]mp3文件地址[/mp3]
+[mp3 属性1=值1|属性2=值2|属性3=值3]mp3文件地址[/mp3]
+[mp3 属性1=值1|属性2=值2|属性3=值3]mp3文件地址[/mp3]
+[mp3 属性1=值1|属性2=值2|属性3=值3]mp3文件地址[/mp3]
+......
+[/music]
+```
+可以设置的属性：
+
+autoplay(是否一载入页面就自动播放),theme(主题颜色),showlrc(是否显示歌词，本属性只有播放列表模式才起作用)
+
+在文章编辑页面中，在要插入单曲播放器的部分输入以下代码：
+```
+[mp3 title=标题|artist=艺术家]mp3文件地址[/mp3]
 ```
 如果需要歌词，有两种方式：
 
 1. 直接粘贴歌词的链接
 ```
-[mp3]mp3文件地址|lrc=lrc文件地址|title=标题|artist=艺术家[/mp3]
+[mp3 lrc=lrc文件地址|title=标题|artist=艺术家]mp3文件地址[/mp3]
 ```
 例如：
 ```
-[mp3]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3|lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|title=Boulevard Of Broken Dreams|artist=Green Day[/mp3]
+[mp3 lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|title=Boulevard Of Broken Dreams|artist=Green Day]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3[/mp3]
 ```
 
 2 . 手动粘贴lrc歌词
 ```
-[mp3]mp3文件地址|title=标题|artist=艺术家[lrc]歌词文本[/lrc][/mp3]
+[mp3 title=标题|artist=艺术家]mp3文件地址[lrc]歌词文本[/lrc][/mp3]
 ```
 例如：
 ```
-[mp3]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3|title=Boulevard Of Broken Dreams|artist=Green Day[lrc][ti:boulevard of broken dreams]
+[mp3 title=Boulevard Of Broken Dreams|artist=Green Day]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3[lrc][ti:boulevard of broken dreams]
 [ar:green day]
 [al:260923]
 [offset:0]
@@ -89,22 +111,56 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 ```
 若需要自定义封面图片的话：
 ```
-[mp3]mp3文件地址|lrc=lrc文件地址|title=标题|artist=艺术家|cover=封面图片链接[/mp3]
+[mp3 lrc=lrc文件地址|title=标题|artist=艺术家|cover=封面图片链接]mp3文件地址[/mp3]
 ```
 例如
 ```
-[mp3]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3|title=Boulevard Of Broken Dreams|artist=Green Day|lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|cover=https://img3.doubanio.com/spic/s27047281.jpg[/mp3]
+[mp3 title=Boulevard Of Broken Dreams|artist=Green Day|lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|cover=https://img3.doubanio.com/spic/s27047281.jpg]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3[/mp3]
 ```
 不想要封面？
 ```
-[mp3]mp3文件地址|lrc=lrc文件地址|title=标题|artist=艺术家|cover=false[/mp3]
+[mp3 lrc=lrc文件地址|title=标题|artist=艺术家|cover=false]mp3文件地址[/mp3]
 ```
 这时候出现的就是默认的封面图片了~~~
 
+插入列表播放器：
 
-清空生成的歌词和api获取的图片链接的缓存
+只要把单曲的[mp3][/mp3]包裹在[music][/music]标签下就可以形成列表了
 
-前往插件设置页面点击红色按钮即可
+example:
+```
+[music autoplay=false|showlrc=1|theme=#e6d0b2]
+[mp3 lrc=http://music.baidu.com/data2/lrc/114769747/114769747.lrc|title=Boulevard Of Broken Dreams|artist=Green Day]http://m2.music.126.net/slObLwCVixCI89eQTERv3A==/1994514092802879.mp3[/mp3]
+[mp3 title=Seven|artist=Tobu]http://m2.music.126.net/r3EAfh3jsRDffsSAcbR6eg==/6636652185818738.mp3[/mp3]
+[mp3 title=Animals|artist=Maroon 5]http://m2.music.126.net/NYq7If0Alf1wH0b81vrEpw==/6668538022514769.mp3[lrc]
+[00:00.570]Baby I'm preying on you tonight
+[00:03.140]Hunt you down eat you alive
+[00:05.560]Just like animals
+[00:06.980]Animals
+[00:08.500]Like animals
+[00:10.800]Maybe you think that you can hide
+[00:13.080]I can smell your scent for miles
+[00:15.590]Just like animals
+[00:17.250]Animals
+[00:18.520]Like animals
+[00:20.820]Baby I'm
+[00:22.110]So what you trying to do to me
+[00:24.400]It's like we can't stop we're enemies
+[00:26.680]But we get along when I'm inside you
+[00:32.300]You're like a drug that's killing me
+[00:34.380]I cut you out entirely
+[00:36.880]But I get so high when I'm inside you
+[00:40.680]Yeah you can start over you can run free
+[00:43.640]You can find other fish in the sea
+[00:45.970]You can pretend it's meant to be
+[00:48.550]But you can't stay away from me
+[/lrc][/mp3]
+[/music]
+```
+
+### 清空生成的歌词和api获取的封面图片url的缓存
+
+前往插件设置页面点击红色删除按钮即可
 
 ## LICENSE
 
