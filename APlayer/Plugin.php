@@ -342,6 +342,11 @@ EOF;
 	 */
 	private static function parse($content = '',$attr = '')
 	{
+		//过滤html标签避免出错
+		$content = strip_tags($content);
+		$attr = strip_tags($attr);
+		
+		//取出[lrc]
 		$lyric = false;
 		if( preg_match('/\[(lrc)](.*?)\[\/\\1]/si', $content ,$lyrics) ){
 			$lyric = $lyrics[2];
