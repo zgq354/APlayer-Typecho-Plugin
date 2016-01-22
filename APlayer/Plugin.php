@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.1.0
+ * @version 1.2.0
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -201,8 +201,8 @@ EOF;
 		//播放器id
 		$id = self::getUniqueId();
 		
-		if (preg_match_all('/\[(mp3)(.*?)](.*?)\[\/\\1]/si', $matches[3] , $all)){
-			$result = array();
+		$result = array();
+		if (preg_match_all('/\[(mp3)(.*?)](.*?)\[\/\\1]/si', $matches[3] , $all)){	
 			foreach ($all[3] as $k=>$v){
 				//获取所有music信息
 				$result[$k] = self::parse(trim($all[3][$k]),trim($all[2][$k]));
@@ -212,14 +212,9 @@ EOF;
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
-			'showlrc' => false,
 			'theme' => '#e6d0b2'
 		);
 		
-		//默认有歌词就显示
-		foreach ($result as $v){
-			if ($v['lyric']) $data['showlrc'] = true;
-		}
 		
 		//获取播放器属性
 		$atts = explode('|',trim($matches[2]));
@@ -229,28 +224,46 @@ EOF;
 			$data[trim($pair[0])] = trim($pair[1]);
 		}
 		
+		if(isset($data['netease'])){
+			$type = isset($data['type']) ? $data['type'] : 'song';
+			$r = self::parse_netease($data['netease'],$type);
+			if ($r) $result = array_merge($result, $r);
+				
+		}
 		
+		//默认有歌词就显示
+		if (!isset($data['showlrc'])){
+			foreach ($result as $v){
+				if ($v['lyric']) {
+					$data['showlrc'] = true;
+					break;
+				}
+			}
+		}
+				
 		//自动播放
-		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] != 'false';
+		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] !== 'false';
 		//歌词
-		$data['showlrc'] = boolval($data['showlrc']) && $data['showlrc'] != 'false';
+		$data['showlrc'] = isset($data['showlrc']) && boolval($data['showlrc']) && $data['showlrc'] !== 'false';
 
 		//输出代码，先输出歌词
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">
 		';
 		
 		$lrcCode = '';
-		foreach ($result as $k=>$v){
-			//歌词不存在的时候输出
-			$lrc = $v['lyric'] ? $v['lyric'] : '[00:00.00]Lyric not found...';
-			$lrcCode .= '<pre class="aplayer-lrc-content">'."\n".$lrc."\n</pre>\n";
-			
-			//清理多余参数, 确保lrc内容不输出到json里面
-			unset($result[$k]['lrc']);
-			unset($result[$k]['cover']);
-			unset($result[$k]['lyric']);
-			unset($result[$k]['artist']);
+		if (!empty($result)){
+			foreach ($result as $k=>$v){
+				//歌词不存在的时候输出
+				$lrc = $v['lyric'] ? $v['lyric'] : '[00:00.00]no lyric';
+				$lrcCode .= '<pre class="aplayer-lrc-content">'."\n".$lrc."\n</pre>\n";	
+				//清理多余参数, 确保lrc内容不输出到json里面
+				unset($result[$k]['lrc']);
+				unset($result[$k]['cover']);
+				unset($result[$k]['lyric']);
+				unset($result[$k]['artist']);
+			}
 		}
+		
 		
 		if ($data['showlrc']) {
 			$playerCode .= $lrcCode;
@@ -372,6 +385,11 @@ EOF;
 
 		$data['lyric'] = $lyric;
 		
+		if(isset($data['netease'])){
+			$result = self::parse_netease($data['netease'],'song');
+			if ($result) $data = array_merge($data, $result[0]);
+			
+		}
 
 		//解析封面
 		if(!isset($data['cover'])){
@@ -393,13 +411,135 @@ EOF;
 		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
 
 		//假如不要自动查找封面的话
-		if (isset($data['cover']))
+		if (isset($data['cover'])){
 			if ($data['cover'] == 'false' || !boolval($data['cover']))
 				unset($data['cover']);
 			else 
 				$data['pic'] = $data['cover'];
+		}
 		
 		return $data;
+	}
+	
+	private static function parse_netease($id, $type){
+		$key = 'netease_'.md5($id.$type);
+		$result = self::cache_get($key);
+		//缓存过期或者找不到的时候则重新请求服务器（例如歌单发生了改变），否则返回缓存
+		if ($result && isset($result['data']) && ($type == "songs" || (isset($result['time']) && (time() - $result['time']) < 43200))){
+			$data = $result['data'];
+		}else{
+			$data = self::get_netease_music($id, $type);
+			self::cache_set($key, array('time' => time(),'data' => $data));
+		}
+		if (empty($data['trackList'])) return false;
+		
+		$return = array();
+		
+		foreach ($data['trackList'] as $v){
+			$return[] = array(
+					'author' => $v['artist'],
+					'artist' => $v['artist'],
+					'title' => $v['title'],
+					'pic' => $v['pic'],
+					'url' => $v['location'],
+					'lyric' => $v['lyric'],
+			);
+		}
+		
+		return $return;		
+		
+	}
+	
+	/**
+	 * 
+	 * @link https://github.com/webjyh/WP-Player/blob/master/include/player.php
+	 * @param unknown $id
+	 * @param unknown $type
+	 */
+	private static function get_netease_music($id, $type){
+		$return = false;
+		switch ( $type ) {
+			case 'song': $url = "http://music.163.com/api/song/detail/?ids=[$id]"; $key = 'songs'; break;
+			case 'album': $url = "http://music.163.com/api/album/$id?id=$id"; $key = 'album'; break;
+			case 'artist': $url = "http://music.163.com/api/artist/$id?id=$id"; $key = 'artist'; break;
+			case 'collect': $url = "http://music.163.com/api/playlist/detail?id=$id"; $key = 'result'; break;
+			default: $url = "http://music.163.com/api/song/detail/?ids=[$id]"; $key = 'songs';
+		}
+		
+		if (!function_exists('curl_init')) return false;
+		
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
+		curl_setopt($ch, CURLOPT_REFERER, 'http://music.163.com/;');
+		$cexecute = curl_exec($ch);
+		curl_close($ch);
+		
+		if ( $cexecute ) {
+			$result = json_decode($cexecute, true);
+			if ( $result['code'] == 200 && $result[$key] ){
+				$return['status'] = true;
+				$return['message'] = "";
+		
+				switch ( $key ){
+					case 'songs' : $data = $result[$key]; break;
+					case 'album' : $data = $result[$key]['songs']; break;
+					case 'artist' : $data = $result['hotSongs']; break;
+					case 'result' : $data = $result[$key]['tracks']; break;
+					default : $data = $result[$key]; break;
+				}
+		
+				foreach ( $data as $keys => $data ){
+					//获取歌词
+					$lyric = self::get_netease_lyric($data['id']);
+					if ($lyric) $lyric = $lyric['lyric'];
+					
+					$return['trackList'][] = array(
+							'song_id' => $data['id'],
+							'title' => $data['name'],
+							'album_name' => $data['album']['name'],
+							'artist' => $data['artists'][0]['name'],
+							'location' => $data['mp3Url'],
+							'pic' => $data['album']['blurPicUrl'].'?param=90x90',
+							'lyric' => $lyric
+					);
+					
+				}
+			}
+		} else {
+			$return = array('status' =>  false, 'message' =>  '非法请求');
+		}
+		return $return;
+	}
+	
+	private static function get_netease_lyric($id){
+		$url = 'http://music.163.com/api/song/media?id='.$id;
+		$refere = 'http://music.163.com;';
+		if (!function_exists('curl_init') ) {
+			return false;
+		} else {
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, $url);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
+			curl_setopt($ch, CURLOPT_REFERER, $refere);
+			$cexecute = curl_exec($ch);
+			curl_close($ch);
+			$JSON = false;
+			if ( $cexecute ) {
+				$result = json_decode($cexecute, true);
+				if ( $result['code'] == 200 && isset($result['lyric']) && $result['lyric'] ){
+					$JSON = array('status' => true, 'lyric' => $result['lyric']);
+				}
+			
+			} else {
+				$JSON = array('status' => true, 'lyric' => null);
+			}
+			return $JSON;
+		}
 	}
 	
 	/**
@@ -487,6 +627,7 @@ EOF;
 			return false;
 		}
 	}
+	
 
 	/**
 	 * url抓取,两种方式,优先用curl,当主机不支持curl时候采用file_get_contents
