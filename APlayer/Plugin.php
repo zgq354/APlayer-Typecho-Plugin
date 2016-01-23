@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.2.0
+ * @version 1.3.0
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -54,6 +54,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 				unlink($file);
 			}
 		}
+		Typecho_Widget::widget('Widget_Notice')->set(_t('APlayer插件缓存已清空!'),NULL,'success');
 	}
 	
 	/**
@@ -74,7 +75,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 
 
 		$submit = new Typecho_Widget_Helper_Form_Element_Submit();
-		$submit->value(_t('清空歌词，专辑图片链接缓存'));
+		$submit->value(_t('清空歌词，专辑图片链接，在线歌曲缓存'));
 		$submit->setAttribute('style','position:relative;');
 		$submit->input->setAttribute('style','position:absolute;bottom:37px;');
 		$submit->input->setAttribute('class','btn btn-s btn-warn btn-operate');
@@ -97,7 +98,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 			unlink($filename);
 		}
 
-		Typecho_Widget::widget('Widget_Notice')->set(_t('歌词与封面链接缓存已清空!'),NULL,'success');
+		Typecho_Widget::widget('Widget_Notice')->set(_t('歌词与封面链接，在线歌曲缓存已清空!'),NULL,'success');
 
 		Typecho_Response::getInstance()->goBack();
 	}
@@ -113,20 +114,23 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	public static function personalConfig(Typecho_Widget_Helper_Form $form) {}
 
 	/**
-	 * 头部css挂载,定义参数的变量
+	 * 头部css挂载,并定义参数的变量
 	 * 
 	 * @return void
 	 */
 	public static function playercss()
 	{
 		$playerurl = Helper::options()->pluginUrl.'/APlayer/dist/';
-		echo '<link rel="stylesheet" type="text/css" href="'.$playerurl.'APlayer.min.css" />
+		echo '
+<!-- APlayer Start -->
+<link rel="stylesheet" type="text/css" href="'.$playerurl.'APlayer.min.css" />
 <script>var aPlayers = [];var aPlayerOptions = [];</script>
+<!-- APlayer End -->
 ';
 	}
 	
 	/**
-	 * 尾部js，解析文章中的播放器参数并生成播放器的html
+	 * 尾部js，解析文章中给header的播放器变量添加的播放器参数并生成播放器的html
 	 *
 	 *
 	 * @return void
@@ -136,6 +140,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		$playerurl = Helper::options()->pluginUrl.'/APlayer/dist/';
 		
 		echo <<<EOF
+<!-- APlayer Start -->
 <script type="text/javascript" src="{$playerurl}APlayer.min.js"></script>
 <script>
 var len = aPlayerOptions.length;
@@ -151,6 +156,9 @@ for(var ii=0;ii<len;ii++){
 	aPlayers[ii].init();
 }
 </script>
+<!-- APlayer End -->
+
+
 EOF;
 	 }
 	 
@@ -182,53 +190,95 @@ EOF;
 		$content = empty($lastResult) ? $content : $lastResult;
 
 		if ($widget instanceof Widget_Archive) {
-			//解析列表播放器
-			$content = preg_replace_callback('/\[(music)(.*?)](.*?)\[\/\\1]/si',array('APlayer_Plugin','parselistCallback'),$content);
-			//解析单曲播放器
-			$content = preg_replace_callback('/\[(mp3)(.*?)](.*?)\[\/\\1]/si',array('APlayer_Plugin','parseCallback'),$content);
+			
+			//当没有标签时候就直接return提高运行效率
+			if ( false === strpos( $content, '[' ) ) {
+				return $content;
+			}
+			
+			$pattern = self::get_shortcode_regex( array('player') );
+			$content = preg_replace_callback("/$pattern/",array('APlayer_Plugin','parseCallback'), $content);
+			
 		}
 
 		return $content;
 	}
 	
 	/**
-	 * 解析列表播放器
+	 * 回调解析
 	 * @param unknown $matches
 	 * @return string
 	 */
-	public static function parselistCallback($matches)
+	public static function parseCallback($matches)
 	{
+		/*
+			$mathes array
+			* 1 - An extra [ to allow for escaping shortcodes with double [[]]
+ 			* 2 - The shortcode name
+ 			* 3 - The shortcode argument list
+ 			* 4 - The self closing /
+ 			* 5 - The content of a shortcode when it wraps some content.
+ 			* 6 - An extra ] to allow for escaping shortcodes with double [[]]
+		 */
+		
+		// allow [[player]] syntax for escaping the tag
+		if ( $matches[1] == '[' && $matches[6] == ']' ) {
+			return substr($matches[0], 1, -1);
+		}
+		
 		//播放器id
 		$id = self::getUniqueId();
 		
+		//还原转义后的html
+		//[player title=&quot;Test Abc&quot; artist=&quot;haha&quot; id=&quot;1234543&quot;/]
+		$attr = htmlspecialchars_decode($matches[3]);
+		
+		//[player]标签的属性，类型为array
+		$atts = self::shortcode_parse_atts($attr);
+		
+		//开始解析音乐地址
 		$result = array();
-		if (preg_match_all('/\[(mp3)(.*?)](.*?)\[\/\\1]/si', $matches[3] , $all)){	
-			foreach ($all[3] as $k=>$v){
-				//获取所有music信息
-				$result[$k] = self::parse(trim($all[3][$k]),trim($all[2][$k]));
+		
+		//case 1, 若[player]标签内有url属性，解析一首歌
+		if (isset($atts['url'])){
+			$result[] = self::parse($matches[5], $atts);
+		}
+		
+		//case 2, 解析[player][/player]内部的[mp3]标签
+		if ($matches[4] != '/' && $matches[5]){
+			//获取正则
+			$regex = self::get_shortcode_regex(array('mp3'));
+			//过滤html标签并还原转义后的字符
+			$content = htmlspecialchars_decode(strip_tags($matches[5]));
+			//开始解析
+			if ( ( false !== strpos( $content, '[' ) ) && preg_match_all("/$regex/", $content , $all)){
+				foreach ($all[0] as $k=>$v){
+					$a = self::shortcode_parse_atts($all[3][$k]);
+					//获取所有music信息
+					$result[] = self::parse(trim($all[5][$k]), $a);
+				}
 			}
 		}
 		
+		//case 3, 解析网易云id或链接
+		if (isset($atts['id'])){
+			$type = isset($atts['type']) ? $atts['type'] : 'song';
+			$r = self::parse_netease($atts['id'],$type);
+			if ($r) $result = array_merge($result, $r);
+			//删除id避免冲突
+			unset($atts['id']);
+		}
+		
+		//播放器默认属性
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
 			'theme' => '#e6d0b2'
 		);
 		
-		
-		//获取播放器属性
-		$atts = explode('|',trim($matches[2]));
-		foreach ($atts as $att) {
-			if (empty($att)) continue;
-			$pair = explode('=',$att);
-			$data[trim($pair[0])] = trim($pair[1]);
-		}
-		
-		if(isset($data['netease'])){
-			$type = isset($data['type']) ? $data['type'] : 'song';
-			$r = self::parse_netease($data['netease'],$type);
-			if ($r) $result = array_merge($result, $r);
-				
+		//设置播放器属性
+		foreach ($atts as $k => $att) {
+			$data[$k] = $atts[$k];
 		}
 		
 		//默认有歌词就显示
@@ -240,20 +290,20 @@ EOF;
 				}
 			}
 		}
-				
+		
 		//自动播放
 		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] !== 'false';
 		//歌词
 		$data['showlrc'] = isset($data['showlrc']) && boolval($data['showlrc']) && $data['showlrc'] !== 'false';
 
-		//输出代码，先输出歌词
+		//输出代码
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">
 		';
-		
+		//歌词部分的html
 		$lrcCode = '';
 		if (!empty($result)){
 			foreach ($result as $k=>$v){
-				//歌词不存在的时候输出
+				//歌词不存在的时候输出'no lyric'
 				$lrc = $v['lyric'] ? $v['lyric'] : '[00:00.00]no lyric';
 				$lrcCode .= '<pre class="aplayer-lrc-content">'."\n".$lrc."\n</pre>\n";	
 				//清理多余参数, 确保lrc内容不输出到json里面
@@ -263,73 +313,18 @@ EOF;
 				unset($result[$k]['artist']);
 			}
 		}
-		
-		
 		if ($data['showlrc']) {
 			$playerCode .= $lrcCode;
 		}
 		$playerCode .= "</div>\n";
 		
-		//开始添加歌曲列表
+		//开始添加歌曲列表，若只有一首歌则解析成单曲播放器，否则解析为列表播放器
+		if (count($result) === 1) 
+			$result = array_shift($result);
 		$data['music'] = $result;
 		
 		//加入头部数组
 		$js = json_encode($data);
-		$playerCode .= <<<EOF
-		<script>aPlayerOptions.push({$js});</script>
-EOF;
-		
-		return $playerCode;
-	}
-
-	/**
-	 * 解析单曲播放器
-	 * 
-	 * @param array $matches
-	 * @return string
-	 */
-	public static function parseCallback($matches)
-	{		
-		$data = self::parse($matches[3],$matches[2]);
-		
-		//播放器id
-		$id = self::getUniqueId();
-		
-		//参数设置
-		$options = array(
-			'id' => $id ,
-			'autoplay' => false,
-			'showlrc' => false,
-			'theme' => '#e6d0b2'
-			);
-		
-		//判断是否有歌词
-		if ($data['lyric']) {
-			$options['showlrc'] = true;
-		}
-
-		if (isset($data['autoplay'])) {
-			$options['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] != 'false';
-		}
-		
-		//主题颜色
-		$options['theme'] = isset($data['theme'])?$data['theme']:$options['theme'];
-		
-		//添加音乐
-		$options['music']['title'] = $data['title'];
-		$options['music']['author'] = $data['author'];
-		$options['music']['url'] = isset($data['url']) ? $data['url'] : '';
-		$options['music']['pic'] = isset($data['pic']) ? $data['pic'] : '';
-		
-		//输出代码
-		$playerCode =  '<div id="player'.$id.'" class="aplayer">
-		';
-		if ($data['lyric']) {
-			$playerCode .= '<pre class="aplayer-lrc-content">'."\n".$data['lyric']."\n</pre>\n";
-		}
-		$playerCode .= "</div>\n";
-		//加入头部数组
-		$js = json_encode($options);
 		$playerCode .= <<<EOF
 		<script>aPlayerOptions.push({$js});</script>
 EOF;
@@ -348,16 +343,16 @@ EOF;
 	}
 	
 	/**
-	 * 解析一首歌
+	 * 根据参数进一步解析得到一首歌曲的信息
 	 * 
-	 * @param string $line [mp3]标签内的内容
-	 * @return multitype: data
+	 * @param string $content 标签内的内容，如歌词
+	 * @param array $atts 歌曲的属性
+	 * @return array 包含歌曲各种属性的数组
 	 */
-	private static function parse($content = '',$attr = '')
+	private static function parse($content = '',$atts = array())
 	{
 		//过滤html标签避免出错
 		$content = strip_tags($content);
-		$attr = strip_tags($attr);
 		
 		//取出[lrc]
 		$lyric = false;
@@ -367,14 +362,8 @@ EOF;
 		
 		$data = array();
 		
-		//mp3链接
-		$data['url'] = preg_replace('/\[(lrc)](.*?)\[\/\\1]/si', '', $content);;
-		
-		$atts = explode('|',trim($attr));
-		foreach ($atts as $att) {
-			if (empty($att)) continue;
-			$pair = explode('=',$att);
-			$data[trim($pair[0])] = trim($pair[1]);
+		foreach ($atts as $k => $att) {
+			$data[$k] = $att;
 		}
 
 		//解析歌词，如果没有[lrc][/lrc]文本歌词但是有lrc的url的话直接从url中读取并缓存
@@ -385,8 +374,9 @@ EOF;
 
 		$data['lyric'] = $lyric;
 		
-		if(isset($data['netease'])){
-			$result = self::parse_netease($data['netease'],'song');
+		//网易云音乐
+		if(isset($data['id'])){
+			$result = self::parse_netease($data['id'],'song');
 			if ($result) $data = array_merge($data, $result[0]);
 			
 		}
@@ -407,6 +397,7 @@ EOF;
 			}
 		}
 		
+		//标题和艺术家
 		$data['author'] = isset($data['artist']) ? $data['artist']:'Unknown';
 		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
 
@@ -421,10 +412,17 @@ EOF;
 		return $data;
 	}
 	
+	/**
+	 * 解析netease信息
+	 * 
+	 * @param unknown $id
+	 * @param unknown $type
+	 * @return boolean|multitype:multitype:unknown Ambigous <>
+	 */
 	private static function parse_netease($id, $type){
 		$key = 'netease_'.md5($id.$type);
 		$result = self::cache_get($key);
-		//缓存过期或者找不到的时候则重新请求服务器（例如歌单发生了改变），否则返回缓存
+		//缓存过期或者找不到的时候则重新请求服务器（设置过期时间是因为歌单等信息可能会发生改变），否则返回缓存
 		if ($result && isset($result['data']) && ($type == "songs" || (isset($result['time']) && (time() - $result['time']) < 43200))){
 			$data = $result['data'];
 		}else{
@@ -451,12 +449,13 @@ EOF;
 	}
 	
 	/**
+	 * 从netease中获取歌曲信息
 	 * 
 	 * @link https://github.com/webjyh/WP-Player/blob/master/include/player.php
-	 * @param unknown $id
-	 * @param unknown $type
+	 * @param unknown $id 
+	 * @param unknown $type 获取的id的类型，songs:歌曲,album:专辑,artist:艺人,collect:歌单
 	 */
-	private static function get_netease_music($id, $type){
+	private static function get_netease_music($id, $type = 'songs'){
 		$return = false;
 		switch ( $type ) {
 			case 'song': $url = "http://music.163.com/api/song/detail/?ids=[$id]"; $key = 'songs'; break;
@@ -514,32 +513,45 @@ EOF;
 		return $return;
 	}
 	
+	/**
+	 * 根据id从netease中获取歌词，带缓存
+	 */
 	private static function get_netease_lyric($id){
-		$url = 'http://music.163.com/api/song/media?id='.$id;
-		$refere = 'http://music.163.com;';
-		if (!function_exists('curl_init') ) {
-			return false;
-		} else {
-			$ch = curl_init();
-			curl_setopt($ch, CURLOPT_URL, $url);
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
-			curl_setopt($ch, CURLOPT_REFERER, $refere);
-			$cexecute = curl_exec($ch);
-			curl_close($ch);
-			$JSON = false;
-			if ( $cexecute ) {
-				$result = json_decode($cexecute, true);
-				if ( $result['code'] == 200 && isset($result['lyric']) && $result['lyric'] ){
-					$JSON = array('status' => true, 'lyric' => $result['lyric']);
-				}
-			
+		$key = 'netease_lrc_'.$id;
+		$result = self::cache_get($key);
+		if($result && isset($result[0])){
+			return $result[0];
+		}else{
+			//缓存取不到则重新抓取
+			$url = 'http://music.163.com/api/song/media?id='.$id;
+			$refere = 'http://music.163.com;';
+			if (!function_exists('curl_init') ) {
+				return false;
 			} else {
-				$JSON = array('status' => true, 'lyric' => null);
+				$ch = curl_init();
+				curl_setopt($ch, CURLOPT_URL, $url);
+				curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+				curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
+				curl_setopt($ch, CURLOPT_REFERER, $refere);
+				$cexecute = curl_exec($ch);
+				curl_close($ch);
+				$JSON = false;
+				if ( $cexecute ) {
+					$result = json_decode($cexecute, true);
+					if ( $result['code'] == 200 && isset($result['lyric']) && $result['lyric'] ){
+						$JSON = array('status' => true, 'lyric' => $result['lyric']);
+					}
+				
+				} else {
+					$JSON = array('status' => true, 'lyric' => null);
+				}
+				//存入缓存
+				self::cache_set($key, array($JSON));
+				return $JSON;
 			}
-			return $JSON;
 		}
+		
 	}
 	
 	/**
@@ -656,6 +668,122 @@ EOF;
 			return false;
 		}
 	}
+	
+
+
+	/**
+	 * Retrieve all attributes from the shortcodes tag.
+	 *
+	 * The attributes list has the attribute name as the key and the value of the
+	 * attribute as the value in the key/value pair. This allows for easier
+	 * retrieval of the attributes, since all attributes have to be known.
+	 *
+	 * @link https://github.com/WordPress/WordPress/blob/master/wp-includes/shortcodes.php
+	 * @since 2.5.0
+	 *
+	 * @param string $text
+	 * @return array|string List of attribute values.
+	 *                      Returns empty array if trim( $text ) == '""'.
+	 *                      Returns empty string if trim( $text ) == ''.
+	 *                      All other matches are checked for not empty().
+	 */
+	private static function shortcode_parse_atts($text) {
+		$atts = array();
+		$pattern = '/([\w-]+)\s*=\s*"([^"]*)"(?:\s|$)|([\w-]+)\s*=\s*\'([^\']*)\'(?:\s|$)|([\w-]+)\s*=\s*([^\s\'"]+)(?:\s|$)|"([^"]*)"(?:\s|$)|(\S+)(?:\s|$)/';
+		$text = preg_replace("/[\x{00a0}\x{200b}]+/u", " ", $text);
+		if ( preg_match_all($pattern, $text, $match, PREG_SET_ORDER) ) {
+			foreach ($match as $m) {
+				if (!empty($m[1]))
+					$atts[strtolower($m[1])] = stripcslashes($m[2]);
+				elseif (!empty($m[3]))
+				$atts[strtolower($m[3])] = stripcslashes($m[4]);
+				elseif (!empty($m[5]))
+				$atts[strtolower($m[5])] = stripcslashes($m[6]);
+				elseif (isset($m[7]) && strlen($m[7]))
+				$atts[] = stripcslashes($m[7]);
+				elseif (isset($m[8]))
+				$atts[] = stripcslashes($m[8]);
+			}
+	
+			// Reject any unclosed HTML elements
+			foreach( $atts as &$value ) {
+				if ( false !== strpos( $value, '<' ) ) {
+					if ( 1 !== preg_match( '/^[^<]*+(?:<[^>]*+>[^<]*+)*+$/', $value ) ) {
+						$value = '';
+					}
+				}
+			}
+		} else {
+			$atts = ltrim($text);
+		}
+		return $atts;
+	}
+	
+	
+	/**
+	 * Retrieve the shortcode regular expression for searching.
+	 *
+	 * The regular expression combines the shortcode tags in the regular expression
+	 * in a regex class.
+	 *
+	 * The regular expression contains 6 different sub matches to help with parsing.
+	 *
+	 * 1 - An extra [ to allow for escaping shortcodes with double [[]]
+	 * 2 - The shortcode name
+	 * 3 - The shortcode argument list
+	 * 4 - The self closing /
+	 * 5 - The content of a shortcode when it wraps some content.
+	 * 6 - An extra ] to allow for escaping shortcodes with double [[]]
+	 *
+	 * @link https://github.com/WordPress/WordPress/blob/master/wp-includes/shortcodes.php
+	 * @since 2.5.0
+	 *
+	 * @global array $shortcode_tags
+	 *
+	 * @param array $tagnames List of shortcodes to find. Optional. Defaults to all registered shortcodes.
+	 * @return string The shortcode search regular expression
+	 */
+	public static function get_shortcode_regex( $tagnames = null ) {
+		global $shortcode_tags;
+	
+		if ( empty( $tagnames ) ) {
+			$tagnames = array_keys( $shortcode_tags );
+		}
+		$tagregexp = join( '|', array_map('preg_quote', $tagnames) );
+	
+		// WARNING! Do not change this regex without changing do_shortcode_tag() and strip_shortcode_tag()
+		// Also, see shortcode_unautop() and shortcode.js.
+		return
+		'\\['                              // Opening bracket
+		. '(\\[?)'                           // 1: Optional second opening bracket for escaping shortcodes: [[tag]]
+		. "($tagregexp)"                     // 2: Shortcode name
+		. '(?![\\w-])'                       // Not followed by word character or hyphen
+		. '('                                // 3: Unroll the loop: Inside the opening shortcode tag
+		.     '[^\\]\\/]*'                   // Not a closing bracket or forward slash
+		.     '(?:'
+		.         '\\/(?!\\])'               // A forward slash not followed by a closing bracket
+		.         '[^\\]\\/]*'               // Not a closing bracket or forward slash
+		.     ')*?'
+		. ')'
+		. '(?:'
+		.     '(\\/)'                        // 4: Self closing tag ...
+		.     '\\]'                          // ... and closing bracket
+		. '|'
+		.     '\\]'                          // Closing bracket
+		.     '(?:'
+		.         '('                        // 5: Unroll the loop: Optionally, anything between the opening and closing shortcode tags
+		.             '[^\\[]*+'             // Not an opening bracket
+		.             '(?:'
+		. '\\[(?!\\/\\2\\])' // An opening bracket not followed by the closing shortcode tag
+		.                 '[^\\[]*+'         // Not an opening bracket
+		.             ')*+'
+		.         ')'
+		.         '\\[\\/\\2\\]'             // Closing shortcode tag
+		.     ')?'
+		. ')'
+		. '(\\]?)';                          // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
+	}
+	
 
 
 }
