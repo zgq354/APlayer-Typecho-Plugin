@@ -415,13 +415,18 @@ EOF;
 				$lyric = $c;
 		}
 
-		$data['lyric'] = $lyric;
+		$data['lyric'] = false;
 
 		//网易云音乐
 		if(isset($data['id'])){
-			$result = self::parse_netease($data['id'],'song');
+			$type = isset($data['type']) ? $data['type'] : 'song';
+			$result = self::parse_netease($data['id'],$type);
 			if ($result) $data = array_merge($data, $result[0]);
 		}
+
+		//自己定义歌词的情况
+		if($lyric)
+			$data['lyric'] = $lyric;
 
 		//解析封面
 		if(!isset($data['cover'])){
@@ -466,7 +471,7 @@ EOF;
 		$key = 'netease_'.md5($id.$type);
 		$result = self::cache_get($key);
 		//缓存过期或者找不到的时候则重新请求服务器（设置过期时间是因为歌单等信息可能会发生改变），否则返回缓存
-		if ($result && isset($result['data']) && ($type == "songs" || (isset($result['time']) && (time() - $result['time']) < 43200))){
+		if ($result && isset($result['data']) && ($type == "song" || (isset($result['time']) && (time() - $result['time']) < 43200))){
 			$data = $result['data'];
 		}else{
 			$data = self::get_netease_music($id, $type);
@@ -496,9 +501,9 @@ EOF;
 	 * 
 	 * @link https://github.com/webjyh/WP-Player/blob/master/include/player.php
 	 * @param unknown $id 
-	 * @param unknown $type 获取的id的类型，songs:歌曲,album:专辑,artist:艺人,collect:歌单
+	 * @param unknown $type 获取的id的类型，song:歌曲,album:专辑,artist:艺人,collect:歌单
 	 */
-	private static function get_netease_music($id, $type = 'songs'){
+	private static function get_netease_music($id, $type = 'song'){
 		$return = false;
 		switch ( $type ) {
 			case 'song': $url = "http://music.163.com/api/song/detail/?ids=[$id]"; $key = 'songs'; break;
