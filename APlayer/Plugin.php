@@ -2,19 +2,63 @@
 if (!defined('__TYPECHO_ROOT_DIR__')) exit;
 
 /**
- * 炒鸡漂亮的html5播放器APlayer插件，支持在文章中插入html5播放器
+ * 炒鸡漂亮的html5播放器APlayer插件，支持在文章中插入html5播放器，启用前请确保插件的cache目录可写
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.0
+ * @version 1.3.1
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
 
-//support the boolval in old php
-if (!function_exists('boolval')) {
+//support the boolval function in older php version
+if ( ! function_exists('boolval')) {
 	function boolval($val) {
 		return (bool) $val;
+	}
+}
+
+if ( ! function_exists('is_really_writable'))
+{
+	/**
+	 * Tests for file writability
+	 *
+	 * is_writable() returns TRUE on Windows servers when you really can't write to
+	 * the file, based on the read-only attribute. is_writable() is also unreliable
+	 * on Unix servers if safe_mode is on.
+	 *
+	 * @link	https://bugs.php.net/bug.php?id=54709
+	 * @param	string
+	 * @return	bool
+	 */
+	function is_really_writable($file)
+	{
+		// If we're on a Unix server with safe_mode off we call is_writable
+		if (DIRECTORY_SEPARATOR === '/' && (is_php('5.4') OR ! ini_get('safe_mode')))
+		{
+			return is_writable($file);
+		}
+		/* For Windows servers and safe_mode "on" installations we'll actually
+		 * write a file then read it. Bah...
+		 */
+		if (is_dir($file))
+		{
+			$file = rtrim($file, '/').'/'.md5(mt_rand());
+			if (($fp = @fopen($file, 'ab')) === FALSE)
+			{
+				return FALSE;
+			}
+			fclose($fp);
+			@chmod($file, 0777);
+			@unlink($file);
+			return TRUE;
+		}
+		elseif ( ! is_file($file) OR ($fp = @fopen($file, 'ab')) === FALSE)
+		{
+			return FALSE;
+		}
+		fclose($fp);
+		return TRUE;
 	}
 }
 
@@ -37,6 +81,8 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		Typecho_Plugin::factory('Widget_Abstract_Contents')->excerptEx = array('APlayer_Plugin','playerparse');
 		Typecho_Plugin::factory('Widget_Archive')->header = array('APlayer_Plugin','playercss');
 		Typecho_Plugin::factory('Widget_Archive')->footer = array('APlayer_Plugin','footerjs');
+		$info = is_really_writable(dirname(__FILE__)."/cache") ? "" : "APlayer插件目录的cache目录不可写，可能会导致博客加载缓慢！"; 
+		return _t($info);
 	}
 	
 	/**
@@ -51,10 +97,10 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		$files = glob('usr/plugins/APlayer/cache/*');
 		foreach($files as $file){
 			if (is_file($file)){
-				unlink($file);
+				@unlink($file);
 			}
 		}
-		Typecho_Widget::widget('Widget_Notice')->set(_t('APlayer插件缓存已清空!'),NULL,'success');
+		return _t('APlayer插件所有缓存已清空!');
 	}
 	
 	/**
@@ -70,7 +116,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		self::deletefile();
 
 		$cache = new Typecho_Widget_Helper_Form_Element_Radio('cache',
-			array('false'=>_t('否')),'false',_t('清空缓存'),_t('必要时可以使用'));
+			array('false'=>_t('否')),'false',_t('清空缓存'),_t('清空插件生成的缓存文件，必要时可以使用'));
 		$form->addInput($cache);
 
 
@@ -95,7 +141,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		$path = __TYPECHO_ROOT_DIR__ .'/usr/plugins/APlayer/cache/';
 
 		foreach (glob($path.'*') as $filename) {
-			unlink($filename);
+			@unlink($filename);
 		}
 
 		Typecho_Widget::widget('Widget_Notice')->set(_t('歌词与封面链接，在线歌曲缓存已清空!'),NULL,'success');
@@ -128,7 +174,8 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 <!-- APlayer End -->
 ';
 	}
-	
+
+
 	/**
 	 * 尾部js，解析文章中给header的播放器变量添加的播放器参数并生成播放器的html
 	 *
@@ -170,12 +217,6 @@ EOF;
 	 */
 	public static function playerfilter($value)
 	{
-		//屏蔽自动链接
-		if ($value['isMarkdown']) {
-			//$value['text'] = preg_replace('/(?!<div>)\[(mp3)](.*?)\[\/\\1](?!<\/div>)/is','<div>[mp3]\\2[/mp3]</div>',$value['text']);
-			//兼容JWPlayer
-			//$value['text'] = preg_replace('/(?!<div>)<(jw)>(.*?)<\/\\1>(?!<\/div>)/is','<div><jw>\\2</jw></div>',$value['text']);
-		}
 		return $value;
 	}
 
@@ -190,15 +231,15 @@ EOF;
 		$content = empty($lastResult) ? $content : $lastResult;
 
 		if ($widget instanceof Widget_Archive) {
-			
+
 			//当没有标签时候就直接return提高运行效率
 			if ( false === strpos( $content, '[' ) ) {
 				return $content;
 			}
-			
+
 			$pattern = self::get_shortcode_regex( array('player') );
 			$content = preg_replace_callback("/$pattern/",array('APlayer_Plugin','parseCallback'), $content);
-			
+
 		}
 
 		return $content;
@@ -220,30 +261,30 @@ EOF;
  			* 5 - The content of a shortcode when it wraps some content.
  			* 6 - An extra ] to allow for escaping shortcodes with double [[]]
 		 */
-		
+
 		// allow [[player]] syntax for escaping the tag
 		if ( $matches[1] == '[' && $matches[6] == ']' ) {
 			return substr($matches[0], 1, -1);
 		}
-		
+
 		//播放器id
 		$id = self::getUniqueId();
-		
+
 		//还原转义后的html
 		//[player title=&quot;Test Abc&quot; artist=&quot;haha&quot; id=&quot;1234543&quot;/]
 		$attr = htmlspecialchars_decode($matches[3]);
-		
+
 		//[player]标签的属性，类型为array
 		$atts = self::shortcode_parse_atts($attr);
-		
+
 		//开始解析音乐地址
 		$result = array();
-		
+
 		//case 1, 若[player]标签内有url属性，解析一首歌
 		if (isset($atts['url'])){
 			$result[] = self::parse($matches[5], $atts);
 		}
-		
+
 		//case 2, 解析[player][/player]内部的[mp3]标签
 		if ($matches[4] != '/' && $matches[5]){
 			//获取正则
@@ -259,7 +300,7 @@ EOF;
 				}
 			}
 		}
-		
+
 		//case 3, 解析网易云id或链接
 		if (isset($atts['id'])){
 			$type = isset($atts['type']) ? $atts['type'] : 'song';
@@ -268,19 +309,19 @@ EOF;
 			//删除id避免冲突
 			unset($atts['id']);
 		}
-		
+
 		//播放器默认属性
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
 			'theme' => '#e6d0b2'
 		);
-		
+
 		//设置播放器属性
 		foreach ($atts as $k => $att) {
 			$data[$k] = $atts[$k];
 		}
-		
+
 		//默认有歌词就显示
 		if (!isset($data['showlrc'])){
 			foreach ($result as $v){
@@ -290,7 +331,7 @@ EOF;
 				}
 			}
 		}
-		
+
 		//自动播放
 		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] !== 'false';
 		//歌词
@@ -317,20 +358,21 @@ EOF;
 			$playerCode .= $lrcCode;
 		}
 		$playerCode .= "</div>\n";
-		
+
 		//开始添加歌曲列表，若只有一首歌则解析成单曲播放器，否则解析为列表播放器
 		if (count($result) === 1) 
 			$result = array_shift($result);
 		$data['music'] = $result;
-		
+
 		//加入头部数组
 		$js = json_encode($data);
 		$playerCode .= <<<EOF
-		<script>aPlayerOptions.push({$js});</script>
+<script>aPlayerOptions.push({$js});</script>
 EOF;
-		
+
 		return $playerCode;
 	}
+
 
 	/**
 	 * 获取一个唯一的id
@@ -341,7 +383,8 @@ EOF;
 		self::$playerID++;
 		return self::$playerID;
 	}
-	
+
+
 	/**
 	 * 根据参数进一步解析得到一首歌曲的信息
 	 * 
@@ -353,15 +396,15 @@ EOF;
 	{
 		//过滤html标签避免出错
 		$content = strip_tags($content);
-		
+
 		//取出[lrc]
 		$lyric = false;
 		if( preg_match('/\[(lrc)](.*?)\[\/\\1]/si', $content ,$lyrics) ){
 			$lyric = $lyrics[2];
 		}
-		
+
 		$data = array();
-		
+
 		foreach ($atts as $k => $att) {
 			$data[$k] = $att;
 		}
@@ -373,12 +416,11 @@ EOF;
 		}
 
 		$data['lyric'] = $lyric;
-		
+
 		//网易云音乐
 		if(isset($data['id'])){
 			$result = self::parse_netease($data['id'],'song');
 			if ($result) $data = array_merge($data, $result[0]);
-			
 		}
 
 		//解析封面
@@ -396,7 +438,7 @@ EOF;
 				}
 			}
 		}
-		
+
 		//标题和艺术家
 		$data['author'] = isset($data['artist']) ? $data['artist']:'Unknown';
 		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
@@ -408,10 +450,11 @@ EOF;
 			else 
 				$data['pic'] = $data['cover'];
 		}
-		
+
 		return $data;
 	}
-	
+
+
 	/**
 	 * 解析netease信息
 	 * 
@@ -430,9 +473,9 @@ EOF;
 			self::cache_set($key, array('time' => time(),'data' => $data));
 		}
 		if (empty($data['trackList'])) return false;
-		
+
 		$return = array();
-		
+
 		foreach ($data['trackList'] as $v){
 			$return[] = array(
 					'author' => $v['artist'],
@@ -443,11 +486,11 @@ EOF;
 					'lyric' => $v['lyric'],
 			);
 		}
-		
 		return $return;		
-		
+
 	}
-	
+
+
 	/**
 	 * 从netease中获取歌曲信息
 	 * 
@@ -464,9 +507,9 @@ EOF;
 			case 'collect': $url = "http://music.163.com/api/playlist/detail?id=$id"; $key = 'result'; break;
 			default: $url = "http://music.163.com/api/song/detail/?ids=[$id]"; $key = 'songs';
 		}
-		
+
 		if (!function_exists('curl_init')) return false;
-		
+
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
@@ -475,13 +518,13 @@ EOF;
 		curl_setopt($ch, CURLOPT_REFERER, 'http://music.163.com/;');
 		$cexecute = curl_exec($ch);
 		curl_close($ch);
-		
+
 		if ( $cexecute ) {
 			$result = json_decode($cexecute, true);
 			if ( $result['code'] == 200 && $result[$key] ){
 				$return['status'] = true;
 				$return['message'] = "";
-		
+
 				switch ( $key ){
 					case 'songs' : $data = $result[$key]; break;
 					case 'album' : $data = $result[$key]['songs']; break;
@@ -489,12 +532,12 @@ EOF;
 					case 'result' : $data = $result[$key]['tracks']; break;
 					default : $data = $result[$key]; break;
 				}
-		
+
 				foreach ( $data as $keys => $data ){
 					//获取歌词
 					$lyric = self::get_netease_lyric($data['id']);
 					if ($lyric) $lyric = $lyric['lyric'];
-					
+
 					$return['trackList'][] = array(
 							'song_id' => $data['id'],
 							'title' => $data['name'],
@@ -512,7 +555,8 @@ EOF;
 		}
 		return $return;
 	}
-	
+
+
 	/**
 	 * 根据id从netease中获取歌词，带缓存
 	 */
@@ -542,7 +586,6 @@ EOF;
 					if ( $result['code'] == 200 && isset($result['lyric']) && $result['lyric'] ){
 						$JSON = array('status' => true, 'lyric' => $result['lyric']);
 					}
-				
 				} else {
 					$JSON = array('status' => true, 'lyric' => null);
 				}
@@ -551,9 +594,9 @@ EOF;
 				return $JSON;
 			}
 		}
-		
 	}
-	
+
+
 	/**
 	 * 通过关键词从豆瓣获取专辑封面链接，当缓存存在时则直接读取缓存
 	 * 
@@ -561,7 +604,7 @@ EOF;
 	 * @return boolean|string
 	 */
 	private static function getcover($words){
-		
+
 		$key = 'cover_'.md5($words);
 
 		if($g = self::cache_get($key)){
@@ -581,10 +624,11 @@ EOF;
 			//用array包裹这个变量就不会判断错误啦
 			self::cache_set($key,array($url));
 			return $url;
-			
+
 		}
 
 	}
+
 
 	/**
 	 * 通过url获取歌词内容，若缓存存在就直接读取缓存
@@ -607,6 +651,7 @@ EOF;
 		
 	}
 
+
 	/**
 	 * 缓存写入
 	 * 
@@ -622,6 +667,7 @@ EOF;
 		fclose($fp);
 		return $status;
 	}
+
 
 	/**
 	 * 缓存读取
@@ -639,7 +685,7 @@ EOF;
 			return false;
 		}
 	}
-	
+
 
 	/**
 	 * url抓取,两种方式,优先用curl,当主机不支持curl时候采用file_get_contents
@@ -668,7 +714,6 @@ EOF;
 			return false;
 		}
 	}
-	
 
 
 	/**
@@ -718,7 +763,7 @@ EOF;
 		}
 		return $atts;
 	}
-	
+
 	
 	/**
 	 * Retrieve the shortcode regular expression for searching.
@@ -738,17 +783,11 @@ EOF;
 	 * @link https://github.com/WordPress/WordPress/blob/master/wp-includes/shortcodes.php
 	 * @since 2.5.0
 	 *
-	 * @global array $shortcode_tags
 	 *
 	 * @param array $tagnames List of shortcodes to find. Optional. Defaults to all registered shortcodes.
 	 * @return string The shortcode search regular expression
 	 */
-	public static function get_shortcode_regex( $tagnames = null ) {
-		global $shortcode_tags;
-	
-		if ( empty( $tagnames ) ) {
-			$tagnames = array_keys( $shortcode_tags );
-		}
+	private static function get_shortcode_regex( $tagnames = null ) {
 		$tagregexp = join( '|', array_map('preg_quote', $tagnames) );
 	
 		// WARNING! Do not change this regex without changing do_shortcode_tag() and strip_shortcode_tag()
@@ -783,7 +822,5 @@ EOF;
 		. ')'
 		. '(\\]?)';                          // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
 	}
-	
-
 
 }
