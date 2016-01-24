@@ -266,25 +266,19 @@ EOF;
 		if ( $matches[1] == '[' && $matches[6] == ']' ) {
 			return substr($matches[0], 1, -1);
 		}
-
 		//播放器id
 		$id = self::getUniqueId();
-
 		//还原转义后的html
 		//[player title=&quot;Test Abc&quot; artist=&quot;haha&quot; id=&quot;1234543&quot;/]
 		$attr = htmlspecialchars_decode($matches[3]);
-
 		//[player]标签的属性，类型为array
 		$atts = self::shortcode_parse_atts($attr);
-
 		//开始解析音乐地址
 		$result = array();
-
 		//case 1, 若[player]标签内有url属性，解析一首歌
 		if (isset($atts['url'])){
 			$result[] = self::parse($matches[5], $atts);
 		}
-
 		//case 2, 解析[player][/player]内部的[mp3]标签
 		if ($matches[4] != '/' && $matches[5]){
 			//获取正则
@@ -300,7 +294,6 @@ EOF;
 				}
 			}
 		}
-
 		//case 3, 解析网易云id或链接
 		if (isset($atts['id'])){
 			$type = isset($atts['type']) ? $atts['type'] : 'song';
@@ -309,19 +302,18 @@ EOF;
 			//删除id避免冲突
 			unset($atts['id']);
 		}
-
+		//避免出错
+		if (empty($result)) return '';
 		//播放器默认属性
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
 			'theme' => '#e6d0b2'
 		);
-
 		//设置播放器属性
 		foreach ($atts as $k => $att) {
 			$data[$k] = $atts[$k];
 		}
-
 		//默认有歌词就显示
 		if (!isset($data['showlrc'])){
 			foreach ($result as $v){
@@ -331,12 +323,10 @@ EOF;
 				}
 			}
 		}
-
 		//自动播放
 		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] !== 'false';
 		//歌词
 		$data['showlrc'] = isset($data['showlrc']) && boolval($data['showlrc']) && $data['showlrc'] !== 'false';
-
 		//输出代码
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">
 		';
@@ -358,12 +348,10 @@ EOF;
 			$playerCode .= $lrcCode;
 		}
 		$playerCode .= "</div>\n";
-
 		//开始添加歌曲列表，若只有一首歌则解析成单曲播放器，否则解析为列表播放器
 		if (count($result) === 1) 
 			$result = array_shift($result);
 		$data['music'] = $result;
-
 		//加入头部数组
 		$js = json_encode($data);
 		$playerCode .= <<<EOF
@@ -396,38 +384,30 @@ EOF;
 	{
 		//过滤html标签避免出错
 		$content = strip_tags($content);
-
 		//取出[lrc]
 		$lyric = false;
 		if( preg_match('/\[(lrc)](.*?)\[\/\\1]/si', $content ,$lyrics) ){
 			$lyric = $lyrics[2];
 		}
-
 		$data = array();
-
 		foreach ($atts as $k => $att) {
 			$data[$k] = $att;
 		}
-
 		//解析歌词，如果没有[lrc][/lrc]文本歌词但是有lrc的url的话直接从url中读取并缓存
 		if(isset($data['lrc']) && !$lyric){
 			if($c = self::getlrc($data['lrc']))
 				$lyric = $c;
 		}
-
 		$data['lyric'] = false;
-
 		//网易云音乐
 		if(isset($data['id'])){
 			$type = isset($data['type']) ? $data['type'] : 'song';
 			$result = self::parse_netease($data['id'],$type);
 			if ($result) $data = array_merge($data, $result[0]);
 		}
-
 		//自己定义歌词的情况
 		if($lyric)
 			$data['lyric'] = $lyric;
-
 		//解析封面
 		if(!isset($data['cover'])){
 			$title = isset($data['title']) ? $data['title'] : '';
@@ -443,11 +423,9 @@ EOF;
 				}
 			}
 		}
-
 		//标题和艺术家
 		$data['author'] = isset($data['artist']) ? $data['artist']:'Unknown';
 		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
-
 		//假如不要自动查找封面的话
 		if (isset($data['cover'])){
 			if ($data['cover'] == 'false' || !boolval($data['cover']))
@@ -455,7 +433,6 @@ EOF;
 			else 
 				$data['pic'] = $data['cover'];
 		}
-
 		return $data;
 	}
 
@@ -478,9 +455,7 @@ EOF;
 			self::cache_set($key, array('time' => time(),'data' => $data));
 		}
 		if (empty($data['trackList'])) return false;
-
 		$return = array();
-
 		foreach ($data['trackList'] as $v){
 			$return[] = array(
 					'author' => $v['artist'],
