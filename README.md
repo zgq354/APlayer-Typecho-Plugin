@@ -23,25 +23,37 @@ Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/
 
 #### 各种属性
 播放器属性：
+
 showlrc: 当showlrc的值为 0 或 false 时，不显示歌词，否则将按照歌曲有无歌词来判断是否输出歌词
+
 autoplay: 是否自动播放，默认为 false （注：由于移动端的浏览器限制，此功能在移动端浏览器将不起作用）
+
 theme: 设置主题颜色(十六进制)，默认为 '#e6d0b2' 
 
 歌曲的属性：
+
 url: mp3文件的链接，必需
+
 lrc: 歌词的lrc链接，非必需
+
 title: 歌曲的标题，若值为空则显示 Unknown
+
 artist: 歌曲的艺术家，若值为空则显示 Unknown
+
 cover: 封面图片链接，非必需，若该值为图片链接则按照链接加载封面图，若没有此属性则会按照title和artist自动从豆瓣api中查找封面图，若值为 false 则不自动查找封面，显示默认封面图片
 
 网易云音乐
+
 id: 歌曲/歌单/专辑/艺人的id ,如果是歌曲的话可用 , 分隔歌曲id一次插入多首歌曲
+
 type: 用以判断id的类型，分为4种：song:歌曲,album:专辑,artist:艺人,collect:歌单
 
 #### 本播放器用到的shortcode标签
 
 [player] :整个播放器的标签，里面可用以上提到的所有属性
+
 [mp3] :只能定义一首歌，可以用歌曲属性和网易云音乐属性，不过最终只能返回一首歌曲，用于嵌套在[player]标签内部添加音乐
+
 [lrc] :用以添加文本的歌词，可嵌套在[mp3],[player]标签内部；当嵌套在[player]标签内部时候，只有[player]内部拥有 url 属性的时候才起作用
 
 #### 基本格式
@@ -108,3 +120,7 @@ example:
 ## LICENSE
 
 MIT © [zgq354](https://github.com/zgq354/)
+
+## Donate
+
+[支持作者](http://blog.izgq.net/donate.html)
