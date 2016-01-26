@@ -34,7 +34,7 @@ if ( ! function_exists('is_really_writable'))
 	function is_really_writable($file)
 	{
 		// If we're on a Unix server with safe_mode off we call is_writable
-		if (DIRECTORY_SEPARATOR === '/' && (is_php('5.4') OR ! ini_get('safe_mode')))
+		if (DIRECTORY_SEPARATOR === '/' && (version_compare(PHP_VERSION, '5.4', '>=') OR ! ini_get('safe_mode')))
 		{
 			return is_writable($file);
 		}
@@ -81,7 +81,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		Typecho_Plugin::factory('Widget_Abstract_Contents')->excerptEx = array('APlayer_Plugin','playerparse');
 		Typecho_Plugin::factory('Widget_Archive')->header = array('APlayer_Plugin','playercss');
 		Typecho_Plugin::factory('Widget_Archive')->footer = array('APlayer_Plugin','footerjs');
-		$info = is_really_writable(dirname(__FILE__)."/cache") ? "" : "APlayer插件目录的cache目录不可写，可能会导致博客加载缓慢！"; 
+		$info = is_really_writable(dirname(__FILE__)."/cache") ? "插件启用成功！！" : "APlayer插件目录的cache目录不可写，可能会导致博客加载缓慢！"; 
 		return _t($info);
 	}
 	
@@ -100,7 +100,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 				@unlink($file);
 			}
 		}
-		return _t('APlayer插件所有缓存已清空!');
+		return _t('APlayer插件禁用成功，所有缓存已清空!');
 	}
 	
 	/**
