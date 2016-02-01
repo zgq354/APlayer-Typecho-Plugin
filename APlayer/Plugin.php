@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.1
+ * @version 1.3.2
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -311,8 +311,10 @@ EOF;
 			'theme' => '#e6d0b2'
 		);
 		//设置播放器属性
-		foreach ($atts as $k => $att) {
-			$data[$k] = $atts[$k];
+		if(!empty($atts)){
+			foreach ($atts as $k => $att) {
+				$data[$k] = $atts[$k];
+			}
 		}
 		//默认有歌词就显示
 		if (!isset($data['showlrc'])){
