@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.2
+ * @version 1.3.3
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -515,22 +515,36 @@ EOF;
 					default : $data = $result[$key]; break;
 				}
 
+				//列表
+				$list = array();
 				foreach ( $data as $keys => $data ){
 					//获取歌词
 					$lyric = self::get_netease_lyric($data['id']);
 					if ($lyric) $lyric = $lyric['lyric'];
 
-					$return['trackList'][] = array(
+					$list[$data['id']] = array(
 							'song_id' => $data['id'],
 							'title' => $data['name'],
 							'album_name' => $data['album']['name'],
 							'artist' => $data['artists'][0]['name'],
 							'location' => $data['mp3Url'],
-							'pic' => $data['album']['blurPicUrl'].'?param=90x90',
+							'pic' => $data['album']['blurPicUrl'].'?param=106x106',
 							'lyric' => $lyric
 					);
-					
 				}
+				//修复一次添加多个id的乱序问题
+				if ($type = 'song' && strpos($id, ',')) {
+					$ids = explode(',', $id);
+					$r = array();
+					foreach ($ids as $v) {
+						if (!empty($list[$v])) {
+							$r[] = $list[$v];
+						}
+					}
+					$list = $r;
+				}
+				//最终播放列表
+				$return['trackList'] = $list;
 			}
 		} else {
 			$return = array('status' =>  false, 'message' =>  '非法请求');
