@@ -6,61 +6,10 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.3
+ * @version 1.3.4
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
-
-//support the boolval function in older php version
-if ( ! function_exists('boolval')) {
-	function boolval($val) {
-		return (bool) $val;
-	}
-}
-
-if ( ! function_exists('is_really_writable'))
-{
-	/**
-	 * Tests for file writability
-	 *
-	 * is_writable() returns TRUE on Windows servers when you really can't write to
-	 * the file, based on the read-only attribute. is_writable() is also unreliable
-	 * on Unix servers if safe_mode is on.
-	 *
-	 * @link	https://bugs.php.net/bug.php?id=54709
-	 * @param	string
-	 * @return	bool
-	 */
-	function is_really_writable($file)
-	{
-		// If we're on a Unix server with safe_mode off we call is_writable
-		if (DIRECTORY_SEPARATOR === '/' && (version_compare(PHP_VERSION, '5.4', '>=') OR ! ini_get('safe_mode')))
-		{
-			return is_writable($file);
-		}
-		/* For Windows servers and safe_mode "on" installations we'll actually
-		 * write a file then read it. Bah...
-		 */
-		if (is_dir($file))
-		{
-			$file = rtrim($file, '/').'/'.md5(mt_rand());
-			if (($fp = @fopen($file, 'ab')) === FALSE)
-			{
-				return FALSE;
-			}
-			fclose($fp);
-			@chmod($file, 0777);
-			@unlink($file);
-			return TRUE;
-		}
-		elseif ( ! is_file($file) OR ($fp = @fopen($file, 'ab')) === FALSE)
-		{
-			return FALSE;
-		}
-		fclose($fp);
-		return TRUE;
-	}
-}
 
 class APlayer_Plugin implements Typecho_Plugin_Interface
 {
@@ -81,7 +30,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		Typecho_Plugin::factory('Widget_Abstract_Contents')->excerptEx = array('APlayer_Plugin','playerparse');
 		Typecho_Plugin::factory('Widget_Archive')->header = array('APlayer_Plugin','playercss');
 		Typecho_Plugin::factory('Widget_Archive')->footer = array('APlayer_Plugin','footerjs');
-		$info = is_really_writable(dirname(__FILE__)."/cache") ? "插件启用成功！！" : "APlayer插件目录的cache目录不可写，可能会导致博客加载缓慢！"; 
+		$info = self::is_really_writable(dirname(__FILE__)."/cache") ? "插件启用成功！！" : "APlayer插件目录的cache目录不可写，可能会导致博客加载缓慢！"; 
 		return _t($info);
 	}
 	
@@ -326,9 +275,9 @@ EOF;
 			}
 		}
 		//自动播放
-		$data['autoplay'] = boolval($data['autoplay']) && $data['autoplay'] !== 'false';
+		$data['autoplay'] = (bool)$data['autoplay'] && $data['autoplay'] !== 'false';
 		//歌词
-		$data['showlrc'] = isset($data['showlrc']) && boolval($data['showlrc']) && $data['showlrc'] !== 'false';
+		$data['showlrc'] = isset($data['showlrc']) && (bool)$data['showlrc'] && $data['showlrc'] !== 'false';
 		//输出代码
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">
 		';
@@ -430,7 +379,7 @@ EOF;
 		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
 		//假如不要自动查找封面的话
 		if (isset($data['cover'])){
-			if ($data['cover'] == 'false' || !boolval($data['cover']))
+			if ($data['cover'] == 'false' || !(bool)$data['cover'])
 				unset($data['cover']);
 			else 
 				$data['pic'] = $data['cover'];
@@ -817,6 +766,46 @@ EOF;
 		.     ')?'
 		. ')'
 		. '(\\]?)';                          // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
+	}
+	/**
+	 * Tests for file writability
+	 *
+	 * is_writable() returns TRUE on Windows servers when you really can't write to
+	 * the file, based on the read-only attribute. is_writable() is also unreliable
+	 * on Unix servers if safe_mode is on.
+	 *
+	 * @link	https://bugs.php.net/bug.php?id=54709
+	 * @param	string
+	 * @return	bool
+	 */
+	private static function is_really_writable($file)
+	{
+		// If we're on a Unix server with safe_mode off we call is_writable
+		if (DIRECTORY_SEPARATOR === '/' && (version_compare(PHP_VERSION, '5.4', '>=') OR ! ini_get('safe_mode')))
+		{
+			return is_writable($file);
+		}
+		/* For Windows servers and safe_mode "on" installations we'll actually
+		 * write a file then read it. Bah...
+		 */
+		if (is_dir($file))
+		{
+			$file = rtrim($file, '/').'/'.md5(mt_rand());
+			if (($fp = @fopen($file, 'ab')) === FALSE)
+			{
+				return FALSE;
+			}
+			fclose($fp);
+			@chmod($file, 0777);
+			@unlink($file);
+			return TRUE;
+		}
+		elseif ( ! is_file($file) OR ($fp = @fopen($file, 'ab')) === FALSE)
+		{
+			return FALSE;
+		}
+		fclose($fp);
+		return TRUE;
 	}
 
 }
