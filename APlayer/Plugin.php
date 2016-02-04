@@ -564,6 +564,8 @@ EOF;
 				$g = json_decode($g,true);
 				if($g['count']){
 					$url = $g['musics'][0]['image'];
+					//换成大图
+					$url = str_replace("spic", "mpic", $url);
 				}
 			}
 			//用array包裹这个变量就不会判断错误啦
