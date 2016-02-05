@@ -6,14 +6,14 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.4
+ * @version 1.3.5
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
 
 class APlayer_Plugin implements Typecho_Plugin_Interface
 {
-	//此变量用以在文章中插入多个播放器的时候将播放器区分开来
+	//此变量用以在一个变量中区分多个播放器实例
 	protected static $playerID = 0;
 	
 	/**
@@ -224,11 +224,12 @@ EOF;
 		$atts = self::shortcode_parse_atts($attr);
 		//开始解析音乐地址
 		$result = array();
-		//case 1, 若[player]标签内有url属性，解析一首歌
-		if (isset($atts['url'])){
-			$result[] = self::parse($matches[5], $atts);
+		//解析[player]标签内id和url属性
+		if (isset($atts['url']) || isset($atts['id'])){
+			$r = self::parse($matches[5], $atts);
+			if ($r) $result = array_merge($result, $r);
 		}
-		//case 2, 解析[player][/player]内部的[mp3]标签
+		//解析[player][/player]内部的[mp3]标签
 		if ($matches[4] != '/' && $matches[5]){
 			//获取正则
 			$regex = self::get_shortcode_regex(array('mp3'));
@@ -239,18 +240,13 @@ EOF;
 				foreach ($all[0] as $k=>$v){
 					$a = self::shortcode_parse_atts($all[3][$k]);
 					//获取所有music信息
-					$result[] = self::parse(trim($all[5][$k]), $a);
+					$r = self::parse(trim($all[5][$k]), $a);
+					if ($r) $result = array_merge($result, $r);
 				}
 			}
 		}
-		//case 3, 解析网易云id或链接
-		if (isset($atts['id'])){
-			$type = isset($atts['type']) ? $atts['type'] : 'song';
-			$r = self::parse_netease($atts['id'],$type);
-			if ($r) $result = array_merge($result, $r);
-			//删除id避免冲突
-			unset($atts['id']);
-		}
+		//删除id避免与后面的id属性冲突
+		if (isset($atts['id'])) unset($atts['id']);
 		//避免出错
 		if (empty($result)) return '';
 		//播放器默认属性
@@ -314,7 +310,7 @@ EOF;
 
 
 	/**
-	 * 获取一个唯一的id
+	 * 获取一个唯一的id以区分各个播放器实例
 	 * @return number
 	 */
 	public static function getUniqueId()
@@ -323,13 +319,12 @@ EOF;
 		return self::$playerID;
 	}
 
-
 	/**
-	 * 根据参数进一步解析得到一首歌曲的信息
+	 * 根据参数进一步解析得到歌曲的信息
 	 * 
 	 * @param string $content 标签内的内容，如歌词
 	 * @param array $atts 歌曲的属性
-	 * @return array 包含歌曲各种属性的数组
+	 * @return array 包含解析结果的数组
 	 */
 	private static function parse($content = '',$atts = array())
 	{
@@ -340,51 +335,66 @@ EOF;
 		if( preg_match('/\[(lrc)](.*?)\[\/\\1]/si', $content ,$lyrics) ){
 			$lyric = $lyrics[2];
 		}
-		$data = array();
-		foreach ($atts as $k => $att) {
-			$data[$k] = $att;
-		}
+		//最终结果
+		$return = array();
 		//解析歌词，如果没有[lrc][/lrc]文本歌词但是有lrc的url的话直接从url中读取并缓存
-		if(isset($data['lrc']) && !$lyric){
-			if($c = self::getlrc($data['lrc']))
+		if(isset($atts['lrc']) && !$lyric){
+			if($c = self::getlrc($atts['lrc']))
 				$lyric = $c;
 		}
-		$data['lyric'] = false;
-		//网易云音乐
-		if(isset($data['id'])){
-			$type = isset($data['type']) ? $data['type'] : 'song';
-			$result = self::parse_netease($data['id'],$type);
-			if ($result) $data = array_merge($data, $result[0]);
+		$atts['lyric'] = false;
+		//解析网易云音乐
+		if(isset($atts['id'])){
+			$type = isset($atts['type']) ? $atts['type'] : 'song';
+			$result = self::parse_netease($atts['id'], $type);
+			if ($result)
+				$return = array_merge($return, $result);
 		}
-		//自己定义歌词的情况
-		if($lyric)
-			$data['lyric'] = $lyric;
-		//解析封面
-		if(!isset($data['cover'])){
-			$title = isset($data['title']) ? $data['title'] : '';
-			$artist = isset($data['artist']) ? $data['artist'] : '';
-			$words = $title.' '.$artist;
-			if ($title || $artist) {
-				if ($p = self::getcover($words)) {
-					$data['cover'] = $p;
-				}elseif ($artist){
-					if ($p = self::getcover($artist)){
-						$data['cover'] = $p;
+		//当网易只返回了一首歌或是有url属性才考虑下方情况
+		if (isset($atts['url']) || count($return) === 1) {
+			//自定义歌词
+			if($lyric)
+				$atts['lyric'] = $lyric;
+			//解析封面
+			if((isset($atts['url']) && !isset($atts['cover'])) || (isset($atts['cover']) && $atts['cover'] == 'search')){
+				$title = isset($atts['title']) ? $atts['title'] : '';
+				$artist = isset($atts['artist']) ? $atts['artist'] : '';
+				$words = $title.' '.$artist;
+				if ($title || $artist) {
+					if ($p = self::getcover($words)) {
+						$atts['cover'] = $p;
+					}elseif ($artist){
+						if ($p = self::getcover($artist)){
+							$atts['cover'] = $p;
+						}
 					}
 				}
 			}
+			//标题和艺术家
+			if (isset($atts['artist'])) {
+				$atts['author'] = $atts['artist'];
+			}elseif (isset($atts['url'])) {
+				$atts['author'] = 'Unknown';
+			}
+			if (isset($atts['title'])) {
+				$atts['title'] = $atts['title'];
+			}elseif (isset($atts['url'])) {
+				$atts['title'] = 'Unknown';
+			}
+			//假如不要自动查找封面的话
+			if (isset($atts['cover'])){
+				if ($atts['cover'] == 'false' || !(bool)$atts['cover'])
+					$atts['cover'] = '';
+				$atts['pic'] = $atts['cover'];
+			}
+			//判断是修改网易获取的歌曲属性还是添加自己的歌曲链接
+			if (isset($atts['url'])) {
+				$return[] = $atts;
+			}else{
+				$return[0] = array_merge($return[0], $atts);
+			}
 		}
-		//标题和艺术家
-		$data['author'] = isset($data['artist']) ? $data['artist']:'Unknown';
-		$data['title'] = isset($data['title']) ? $data['title'] : 'Unknown';
-		//假如不要自动查找封面的话
-		if (isset($data['cover'])){
-			if ($data['cover'] == 'false' || !(bool)$data['cover'])
-				unset($data['cover']);
-			else 
-				$data['pic'] = $data['cover'];
-		}
-		return $data;
+		return $return;
 	}
 
 
