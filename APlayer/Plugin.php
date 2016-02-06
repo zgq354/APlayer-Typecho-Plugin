@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.6
+ * @version 1.3.7
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -63,6 +63,10 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	{
 		if (isset($_GET['action']) && $_GET['action'] == 'deletefile')
 		self::deletefile();
+		$maintheme = new Typecho_Widget_Helper_Form_Element_Text(
+            'maintheme', null, '#e6d0b2',
+            _t('默认主题颜色'), _t('播放器默认的主题颜色，如 #372e21、#75c、red、blue，该设定会被[player]标签中的theme属性覆盖，默认为 #e6d0b2'));
+		$form->addInput($maintheme);
 
 		$cache = new Typecho_Widget_Helper_Form_Element_Radio('cache',
 			array('false'=>_t('否')),'false',_t('清空缓存'),_t('清空插件生成的缓存文件，必要时可以使用'));
@@ -247,13 +251,16 @@ EOF;
 		}
 		//删除id避免与后面的id属性冲突
 		if (isset($atts['id'])) unset($atts['id']);
-		//避免出错
+		//没有歌曲时候直接返回空值避免出错
 		if (empty($result)) return '';
+		//主题颜色
+		$theme = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->maintheme;
+		if (!$theme) $theme = '#e6d0b2';
 		//播放器默认属性
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
-			'theme' => '#e6d0b2'
+			'theme' => $theme
 		);
 		//设置播放器属性
 		if(!empty($atts)){
