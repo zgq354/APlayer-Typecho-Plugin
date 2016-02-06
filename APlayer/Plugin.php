@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.5
+ * @version 1.3.6
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -575,7 +575,7 @@ EOF;
 				if($g['count']){
 					$url = $g['musics'][0]['image'];
 					//换成大图
-					$url = str_replace("spic", "mpic", $url);
+					$url = str_replace("/spic/", "/mpic/", $url);
 				}
 			}
 			//用array包裹这个变量就不会判断错误啦
