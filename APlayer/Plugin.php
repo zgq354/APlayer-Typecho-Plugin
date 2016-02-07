@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.7
+ * @version 1.3.8
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -62,7 +62,13 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	public static function config(Typecho_Widget_Helper_Form $form)
 	{
 		if (isset($_GET['action']) && $_GET['action'] == 'deletefile')
-		self::deletefile();
+			self::deletefile();
+
+		$listexpire = new Typecho_Widget_Helper_Form_Element_Text(
+            'listexpire', null, '43200',
+            _t('歌单更新周期'), _t('设置歌单的缓存时间（单位：秒），超过设定时间后歌单将自动更新'));
+		$form->addInput($listexpire);
+
 		$maintheme = new Typecho_Widget_Helper_Form_Element_Text(
             'maintheme', null, '#e6d0b2',
             _t('默认主题颜色'), _t('播放器默认的主题颜色，如 #372e21、#75c、red、blue，该设定会被[player]标签中的theme属性覆盖，默认为 #e6d0b2'));
@@ -71,7 +77,6 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 		$cache = new Typecho_Widget_Helper_Form_Element_Radio('cache',
 			array('false'=>_t('否')),'false',_t('清空缓存'),_t('清空插件生成的缓存文件，必要时可以使用'));
 		$form->addInput($cache);
-
 
 		$submit = new Typecho_Widget_Helper_Form_Element_Submit();
 		$submit->value(_t('清空歌词，专辑图片链接，在线歌曲缓存'));
@@ -415,8 +420,12 @@ EOF;
 	private static function parse_netease($id, $type){
 		$key = 'netease_'.md5($id.$type);
 		$result = self::cache_get($key);
+		//列表更新周期
+		$listexpire = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->listexpire;
+		if ($listexpire === null) $listexpire = 43200;
+		$listexpire = (int)$listexpire;
 		//缓存过期或者找不到的时候则重新请求服务器（设置过期时间是因为歌单等信息可能会发生改变），否则返回缓存
-		if ($result && isset($result['data']) && ($type == "song" || (isset($result['time']) && (time() - $result['time']) < 43200))){
+		if ($result && isset($result['data']) && ($type == "song" || (isset($result['time']) && (time() - $result['time']) < $listexpire))){
 			$data = $result['data'];
 		}else{
 			$data = self::get_netease_music($id, $type);
