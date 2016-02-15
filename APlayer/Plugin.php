@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.8
+ * @version 1.3.9
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -403,6 +403,10 @@ EOF;
 			if (isset($atts['url'])) {
 				$return[] = $atts;
 			}else{
+				//当没有自定义歌词时候删除变量避免覆盖掉原有歌词
+				if ( ! $atts['lyric']) {
+					unset($atts['lyric']);
+				}
 				$return[0] = array_merge($return[0], $atts);
 			}
 		}
