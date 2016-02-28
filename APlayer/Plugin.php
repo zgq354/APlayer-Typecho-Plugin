@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.9
+ * @version 1.3.10
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -474,6 +474,7 @@ EOF;
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
+		curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
 		curl_setopt($ch, CURLOPT_REFERER, 'http://music.163.com/;');
@@ -550,6 +551,7 @@ EOF;
 				$ch = curl_init();
 				curl_setopt($ch, CURLOPT_URL, $url);
 				curl_setopt($ch, CURLOPT_HTTPHEADER, array( 'Cookie: appver=2.0.2' ));
+				curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 				curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
 				curl_setopt($ch, CURLOPT_REFERER, $refere);
@@ -676,6 +678,7 @@ EOF;
 			$ch = curl_init($url); 
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true) ; 
 			curl_setopt($ch, CURLOPT_BINARYTRANSFER, true) ; 
+			curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 			$output = curl_exec($ch);
 			$httpCode = curl_getinfo($ch,CURLINFO_HTTP_CODE);
