@@ -507,7 +507,7 @@ EOF;
 							'title' => $data['name'],
 							'album_name' => $data['album']['name'],
 							'artist' => $data['artists'][0]['name'],
-							'location' => $data['mp3Url'],
+							'location' => str_replace('http://m2', 'http://m1', $data['mp3Url']),
 							'pic' => $data['album']['blurPicUrl'].'?param=106x106',
 							'lyric' => $lyric
 					);
