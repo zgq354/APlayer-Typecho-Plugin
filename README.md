@@ -17,7 +17,7 @@ A typecho plugin for the beautiful html5 music player https://github.com/DIYgod/
 
 主机需支持curl扩展，否则将可能不能自动查找封面、解析网易云音乐id、从https的url中获取歌词(file_get_contents在不支持openssl的主机中不能打开https链接)
 
-Download ZIP, 解压，将其中的 APlayer 文件夹放入你博客中的 /usr/plugins 目录，在后台启用即可
+Download ZIP, 解压，将 APlayer-Typecho-Plugin-master 重命名为 APlayer ，之后上传到你博客中的 /usr/plugins 目录，在后台启用即可
 
 ## 使用方法
 在文章或页面中加入下方格式的短代码即可

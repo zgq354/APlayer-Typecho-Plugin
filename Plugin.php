@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.3.11
+ * @version 1.4.1
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -124,7 +124,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	 */
 	public static function playercss()
 	{
-		$playerurl = Helper::options()->pluginUrl.'/APlayer/dist/';
+		$playerurl = Helper::options()->pluginUrl.'/APlayer/player/dist/';
 		echo '
 <!-- APlayer Start -->
 <link rel="stylesheet" type="text/css" href="'.$playerurl.'APlayer.min.css" />
@@ -142,7 +142,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	 */
 	 public static function footerjs()
 	 {
-		$playerurl = Helper::options()->pluginUrl.'/APlayer/dist/';
+		$playerurl = Helper::options()->pluginUrl.'/APlayer/player/dist/';
 		
 		echo <<<EOF
 <!-- APlayer Start -->
