@@ -1,5 +1,5 @@
 # APlayer-Typecho-Plugin
-A typecho plugin for the beautiful html5 music player https://github.com/DIYgod/APlayer 
+Typecho plugin for a beautiful html5 music player https://github.com/DIYgod/APlayer 
 
 [Demo](http://blog.izgq.net/archives/456/)
 
