@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.4.2
+ * @version 1.4.3
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -362,13 +362,13 @@ EOF;
 			if ($result)
 				$return = array_merge($return, $result);
 		}
-		//当网易只返回了一首歌或是有url属性才考虑下方情况
+		//当网易只返回了一首歌或是插入自己上传的音乐才考虑下方情况
 		if (isset($atts['url']) || count($return) === 1) {
 			//自定义歌词
 			if($lyric)
 				$atts['lyric'] = $lyric;
 			//解析封面
-			if((isset($atts['url']) && !isset($atts['cover'])) || (isset($atts['cover']) && $atts['cover'] == 'search')){
+			if(( ! isset($atts['id']) && isset($atts['url']) && !isset($atts['cover'])) || (isset($atts['cover']) && $atts['cover'] == 'search')){
 				$title = isset($atts['title']) ? $atts['title'] : '';
 				$artist = isset($atts['artist']) ? $atts['artist'] : '';
 				$words = $title.' '.$artist;
@@ -385,12 +385,10 @@ EOF;
 			//标题和艺术家
 			if (isset($atts['artist'])) {
 				$atts['author'] = $atts['artist'];
-			}elseif (isset($atts['url'])) {
+			}elseif ( ! isset($atts['id']) && isset($atts['url'])) {
 				$atts['author'] = 'Unknown';
 			}
-			if (isset($atts['title'])) {
-				$atts['title'] = $atts['title'];
-			}elseif (isset($atts['url'])) {
+			if (! isset($atts['title']) && ! isset($atts['id']) && isset($atts['url'])) {
 				$atts['title'] = 'Unknown';
 			}
 			//假如不要自动查找封面的话
@@ -400,7 +398,7 @@ EOF;
 				$atts['pic'] = $atts['cover'];
 			}
 			//判断是修改网易获取的歌曲属性还是添加自己的歌曲链接
-			if (isset($atts['url'])) {
+			if ( ! isset($atts['id'])) {
 				$return[] = $atts;
 			}else{
 				//当没有自定义歌词时候删除变量避免覆盖掉原有歌词
