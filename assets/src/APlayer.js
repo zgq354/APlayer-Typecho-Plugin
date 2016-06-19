@@ -191,6 +191,7 @@
                     <div class="aplayer-controller">
                         <div class="aplayer-bar-wrap">
                             <div class="aplayer-bar">
+                                <div class="aplayer-bar-click"></div>
                                 <div class="aplayer-loaded" style="width: 0"></div>
                                 <div class="aplayer-played" style="width: 0; background: ${this.option.theme};">
                                     <span class="aplayer-thumb" style="border: 1px solid ${this.option.theme};"></span>
@@ -579,7 +580,7 @@
                 this.button.innerHTML = '';
                 setTimeout(() => {
                     this.button.innerHTML = '<i class="demo-icon aplayer-icon-pause"></i>';
-                }, 100);
+                }, 50);
 
                 // pause other players (Thanks @Aprikyblue)
                 if (this.option.mutex) {
@@ -616,7 +617,7 @@
                 this.button.innerHTML = '';
                 setTimeout(() => {
                     this.button.innerHTML = '<i class="demo-icon aplayer-icon-play"></i>';
-                }, 100);
+                }, 50);
                 this.audio.pause();
                 clearInterval(this.playedTime);
                 this.trigger('pause');

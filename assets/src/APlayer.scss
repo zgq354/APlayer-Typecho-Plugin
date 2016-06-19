@@ -198,6 +198,13 @@ $aplayer-height-lrc: $aplayer-height + $lrc-height;
                     background: #cdcdcd;
                     cursor: pointer !important;
 
+                    .aplayer-bar-click {
+                        width: 100%;
+                        height: 13px;
+                        position: absolute;
+                        top: -6px;
+                    }
+
                     .aplayer-loaded {
                         position: absolute;
                         left: 0;
