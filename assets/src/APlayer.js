@@ -1,13 +1,12 @@
-/**
- * APlayer constructor function
- *
- * @param {Object} option - See README
- * @constructor
- */
-(() => {
-    let APlayers = [];
+((instances) => {
 
     class APlayer {
+        /**
+         * APlayer constructor function
+         *
+         * @param {Object} option - See README
+         * @constructor
+         */
         constructor(option) {
 
             this.isMobile = navigator.userAgent.match(/(iPad)|(iPhone)|(iPod)|(android)|(webOS)/i);
@@ -23,7 +22,8 @@
                 autoplay: false,
                 mutex: true,
                 showlrc: 0,
-                theme: '#b7daff'
+                theme: '#b7daff',
+                loop: true
             };
             for (let defaultKey in defaultOption) {
                 if (defaultOption.hasOwnProperty(defaultKey) && !option.hasOwnProperty(defaultKey)) {
@@ -36,7 +36,7 @@
 
             this.option = option;
             this.audios = [];
-            this.loop = true;
+            this.loop = option.loop;
 
             /**
              * Parse second to 00:00 format
@@ -123,6 +123,18 @@
                     }
                 }
             };
+
+            // define APlayer events
+            this.eventTypes = ['play', 'pause', 'canplay', 'playing', 'ended', 'error'];
+            this.event = {};
+            for (let i = 0; i < this.eventTypes.length; i++) {
+                this.event[this.eventTypes[i]] = [];
+            }
+            this.trigger = (type) => {
+                for (let i = 0; i < this.event[type].length; i++) {
+                    this.event[type][i]();
+                }
+            }
         }
 
         /**
@@ -163,7 +175,7 @@
 
             // fill in HTML
             let eleHTML = `
-                <div class="aplayer-pic" ${(this.music.pic ? (`style="background-image: url("${encodeURI(this.music.pic)}");"`) : ``)}>
+                <div class="aplayer-pic" ${(this.music.pic ? (`style="background-image: url(${encodeURI(this.music.pic)});"`) : ``)}>
                     <div class="aplayer-button aplayer-play">
                         <i class="demo-icon aplayer-icon-play"></i>
                     </div>
@@ -195,7 +207,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <i class="demo-icon aplayer-icon-loop"></i>${(this.multiple ? `<i class="demo-icon aplayer-icon-menu"></i>` : ``)}
+                            <i class="demo-icon aplayer-icon-loop${(this.loop ? `` : ` aplayer-noloop`)}"></i>${(this.multiple ? `<i class="demo-icon aplayer-icon-menu"></i>` : ``)}
                         </div>
                     </div>
                 </div>`;
@@ -217,6 +229,8 @@
                 </div>`
             }
             this.element.innerHTML = eleHTML;
+
+            this.ptime = this.element.getElementsByClassName('aplayer-ptime')[0];
 
             if (this.element.getElementsByClassName('aplayer-info')[0].offsetWidth < 200) {
                 this.element.getElementsByClassName('aplayer-time')[0].classList.add('aplayer-time-narrow');
@@ -249,7 +263,12 @@
                         if (musicIndex !== this.playIndex) {
                             this.setMusic(musicIndex);
                         }
-                        this.play();
+                        if (this.isMobile) {
+                            this.pause();
+                        }
+                        else {
+                            this.play();
+                        }
                     });
                 }
             }
@@ -292,7 +311,14 @@
                 document.removeEventListener('mouseup', thumbUp);
                 document.removeEventListener('mousemove', thumbMove);
                 this.audio.currentTime = parseFloat(this.playedBar.style.width) / 100 * this.audio.duration;
-                this.play();
+                this.playedTime = setInterval(() => {
+                    this.updateBar('played', this.audio.currentTime / this.audio.duration, 'width');
+                    if (this.option.showlrc) {
+                        this.updateLrc();
+                    }
+                    this.element.getElementsByClassName('aplayer-ptime')[0].innerHTML = this.secondToTime(this.audio.currentTime);
+                    this.trigger('playing');
+                }, 100);
             };
 
             this.thumb.addEventListener('mousedown', () => {
@@ -392,8 +418,8 @@
 
             this.setMusic(0);
 
-            APlayers.push(this);
-        };
+            instances.push(this);
+        }
 
         /**
          * Set music
@@ -429,44 +455,67 @@
             if ((this.multiple && !this.audios[indexMusic]) || this.playIndex === -1) {
                 this.audio = document.createElement("audio");
                 this.audio.src = this.music.url;
-                this.audio.preload = this.isMobile ? 'none' : 'metadata';
+                if (this.option.preload) {
+                    this.audio.preload = this.option.preload;
+                }
+                else {
+                    this.audio.preload = this.isMobile ? 'none' : 'metadata';
+                }
 
-                // show audio time
+                // show audio time: the metadata has loaded or changed
                 this.audio.addEventListener('durationchange', () => {
                     if (this.audio.duration !== 1) {           // compatibility: Android browsers will output 1 at first
                         this.element.getElementsByClassName('aplayer-dtime')[0].innerHTML = this.secondToTime(this.audio.duration);
                     }
                 });
 
-                // show audio loaded bar
+                // show audio loaded bar: to inform interested parties of progress downloading the media
                 this.audio.addEventListener('progress', () => {
                     const percentage = this.audio.buffered.length ? this.audio.buffered.end(this.audio.buffered.length - 1) / this.audio.duration : 0;
                     this.updateBar('loaded', percentage, 'width');
                 });
 
-                // audio download error
+                // audio download error: an error occurs
                 this.audio.addEventListener('error', () => {
                     this.element.getElementsByClassName('aplayer-author')[0].innerHTML = ` - Error happens ╥﹏╥`;
+                    this.trigger('pause');
+                });
+
+                // audio can play: enough data is available that the media can be played
+                this.audio.addEventListener('canplay', () => {
+                    this.trigger('canplay');
                 });
 
                 // multiple music play
+                this.ended = false;
                 if (this.multiple) {
                     this.audio.addEventListener('ended', () => {
-                        if (this.playIndex < this.option.music.length - 1) {
-                            this.setMusic(++this.playIndex);
-                        }
-                        else if (this.loop) {
-                            this.setMusic(0);
-                        }
-                        else if (!this.loop) {
+                        if (this.isMobile) {
+                            this.ended = true;
                             this.pause();
+                            return;
+                        }
+                        if (this.audio.currentTime !== 0) {
+                            if (this.playIndex < this.option.music.length - 1) {
+                                this.setMusic(++this.playIndex);
+                            }
+                            else if (this.loop) {
+                                this.setMusic(0);
+                            }
+                            else if (!this.loop) {
+                                this.ended = true;
+                                this.pause();
+                                this.trigger('ended');
+                            }
                         }
                     });
                 }
                 else {
                     this.audio.addEventListener('ended', () => {
                         if (!this.loop) {
+                            this.ended = true;
                             this.pause();
+                            this.trigger('ended');
                         }
                     });
                 }
@@ -518,7 +567,7 @@
             if (this.isMobile) {
                 this.pause();
             }
-        };
+        }
 
         /**
          * Play music
@@ -534,9 +583,9 @@
 
                 // pause other players (Thanks @Aprikyblue)
                 if (this.option.mutex) {
-                    for (let i = 0; i < APlayers.length; i++) {
-                        if (this != APlayers[i]) {
-                            APlayers[i].pause();
+                    for (let i = 0; i < instances.length; i++) {
+                        if (this != instances[i]) {
+                            instances[i].pause();
                         }
                     }
                 }
@@ -549,16 +598,19 @@
                     if (this.option.showlrc) {
                         this.updateLrc();
                     }
-                    this.element.getElementsByClassName('aplayer-ptime')[0].innerHTML = this.secondToTime(this.audio.currentTime);
+                    this.ptime.innerHTML = this.secondToTime(this.audio.currentTime);
+                    this.trigger('playing');
                 }, 100);
+                this.trigger('play');
             }
-        };
+        }
 
         /**
          * Pause music
          */
         pause() {
-            if (!this.audio.paused) {
+            if (!this.audio.paused || this.ended) {
+                this.ended = false;
                 this.button.classList.remove('aplayer-pause');
                 this.button.classList.add('aplayer-play');
                 this.button.innerHTML = '';
@@ -567,14 +619,24 @@
                 }, 100);
                 this.audio.pause();
                 clearInterval(this.playedTime);
+                this.trigger('pause');
             }
-        };
+        }
+
+        /**
+         * attach event
+         */
+        on(name, func) {
+            if (typeof func === 'function') {
+                this.event[name].push(func);
+            }
+        }
     }
 
     if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-        module.exports = APlayer
+        module.exports = APlayer;
     }
     else {
         window.APlayer = APlayer;
     }
-})();
+})([]);

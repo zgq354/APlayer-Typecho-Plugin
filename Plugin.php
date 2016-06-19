@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.4.3
+ * @version 1.4.4
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -74,6 +74,11 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
             _t('默认主题颜色'), _t('播放器默认的主题颜色，如 #372e21、#75c、red、blue，该设定会被[player]标签中的theme属性覆盖，默认为 #e6d0b2'));
 		$form->addInput($maintheme);
 
+		$mutex = new Typecho_Widget_Helper_Form_Element_Radio(
+            'mutex', array('false'=>_t('是'),'true'=>_t('否')), 'true',
+            _t('是否允许在一个页面中多个播放器同时播放'), _t('若选择否，当页面中存在多个播放器时，点击其中一个播放器的播放按钮，其它播放器将自动暂停'));
+		$form->addInput($mutex);
+
 		$cache = new Typecho_Widget_Helper_Form_Element_Radio('cache',
 			array('false'=>_t('否')),'false',_t('清空缓存'),_t('清空插件生成的缓存文件，必要时可以使用'));
 		$form->addInput($cache);
@@ -124,7 +129,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	 */
 	public static function playercss()
 	{
-		$playerurl = Helper::options()->pluginUrl.'/APlayer/player/dist/';
+		$playerurl = Helper::options()->pluginUrl.'/APlayer/assets/dist/';
 		echo '
 <!-- APlayer Start -->
 <link rel="stylesheet" type="text/css" href="'.$playerurl.'APlayer.min.css" />
@@ -142,7 +147,7 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
 	 */
 	 public static function footerjs()
 	 {
-		$playerurl = Helper::options()->pluginUrl.'/APlayer/player/dist/';
+		$playerurl = Helper::options()->pluginUrl.'/APlayer/assets/dist/';
 		
 		echo <<<EOF
 <!-- APlayer Start -->
@@ -153,6 +158,7 @@ for(var ii=0;ii<len;ii++){
 	aPlayers[ii] = new APlayer({
 		element: document.getElementById('player' + aPlayerOptions[ii]['id']),
             narrow: false,
+            mutex: aPlayerOptions[ii]['mutex'],
             autoplay: aPlayerOptions[ii]['autoplay'],
             showlrc: aPlayerOptions[ii]['showlrc'],
             music: aPlayerOptions[ii]['music'],
@@ -261,11 +267,16 @@ EOF;
 		//主题颜色
 		$theme = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->maintheme;
 		if (!$theme) $theme = '#e6d0b2';
+		//只允许一个播放器播放
+		$mutex = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->mutex;
+		if ($mutex == "false") $mutex = false;
+		if ($mutex == "true") $mutex = true;
 		//播放器默认属性
 		$data = array(
 			'id' => $id ,
 			'autoplay' => false,
-			'theme' => $theme
+			'theme' => $theme,
+			'mutex' => $mutex
 		);
 		//设置播放器属性
 		if(!empty($atts)){
@@ -285,26 +296,19 @@ EOF;
 		//自动播放
 		$data['autoplay'] = (bool)$data['autoplay'] && $data['autoplay'] !== 'false';
 		//歌词
-		$data['showlrc'] = isset($data['showlrc']) && (bool)$data['showlrc'] && $data['showlrc'] !== 'false';
+		$data['showlrc'] = isset($data['showlrc']) && (bool)$data['showlrc'] && $data['showlrc'] !== 'false' ? 1 : 0 ;
 		//输出代码
 		$playerCode =  '<div id="player'.$id.'" class="aplayer">
 		';
-		//歌词部分的html
-		$lrcCode = '';
+		//歌词
 		if (!empty($result)){
 			foreach ($result as $k=>$v){
 				//歌词不存在的时候输出'no lyric'
-				$lrc = $v['lyric'] ? $v['lyric'] : '[00:00.00]no lyric';
-				$lrcCode .= '<pre class="aplayer-lrc-content">'."\n".$lrc."\n</pre>\n";	
-				//清理多余参数, 确保lrc内容不输出到json里面
-				unset($result[$k]['lrc']);
+				$result[$k]['lrc'] = $v['lyric'] ? $v['lyric'] : "[00:00.00]no lyric\n[99:00.00] ";
 				unset($result[$k]['cover']);
 				unset($result[$k]['lyric']);
 				unset($result[$k]['artist']);
 			}
-		}
-		if ($data['showlrc']) {
-			$playerCode .= $lrcCode;
 		}
 		$playerCode .= "</div>\n";
 		//开始添加歌曲列表，若只有一首歌则解析成单曲播放器，否则解析为列表播放器
@@ -420,7 +424,7 @@ EOF;
 	 * @return boolean|multitype:multitype:unknown Ambigous <>
 	 */
 	private static function parse_netease($id, $type){
-		$key = 'netease_'.md5($id.$type);
+		$key = 'netease_'.$type.'_'.$id;
 		$result = self::cache_get($key);
 		//列表更新周期
 		$listexpire = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->listexpire;
@@ -445,7 +449,7 @@ EOF;
 					'lyric' => $v['lyric'],
 			);
 		}
-		return $return;		
+		return $return;	
 
 	}
 
