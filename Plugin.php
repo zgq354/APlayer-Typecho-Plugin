@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.4.7
+ * @version 1.4.8
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -78,6 +78,13 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
             'mutex', array('false'=>_t('是'),'true'=>_t('否')), 'true',
             _t('是否允许在一个页面中多个播放器同时播放'), _t('若选择否，当页面中存在多个播放器时，点击其中一个播放器的播放按钮，其它播放器将自动暂停'));
         $form->addInput($mutex);
+
+
+        $preload = new Typecho_Widget_Helper_Form_Element_Radio(
+            'preload', array('false'=>_t('自动'),'none'=>_t('none'),'metadata'=>_t('metadata'),'auto'=>_t('auto')), 'false',
+            _t('音频预加载(preload)属性'), '自动:移动端为none，桌面端为metadata; none:页面加载后不预加载音频; metadata:当页面加载后仅加载音频的元数据; auto:一旦页面加载，则开始加载音频。');
+        $form->addInput($preload);
+
 
         $cache = new Typecho_Widget_Helper_Form_Element_Radio('cache',
             array('false'=>_t('否')),'false',_t('清空缓存'),_t('清空插件生成的缓存文件，必要时可以使用'));
@@ -158,6 +165,7 @@ for(var i=0;i<len;i++){
     APlayers[i] = new APlayer({
         element: document.getElementById('player' + APlayerOptions[i]['id']),
         narrow: false,
+        preload: APlayerOptions[i]['preload'],
         mutex: APlayerOptions[i]['mutex'],
         autoplay: APlayerOptions[i]['autoplay'],
         showlrc: APlayerOptions[i]['showlrc'],
@@ -271,12 +279,16 @@ EOF;
         $mutex = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->mutex;
         if ($mutex == "false") $mutex = false;
         if ($mutex == "true") $mutex = true;
+        //Audio preload
+        $preload = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->preload;
+        if (!$preload || $preload == "false") $preload = false;
         //播放器默认属性
         $data = array(
             'id' => $id ,
             'autoplay' => false,
             'theme' => $theme,
-            'mutex' => $mutex
+            'mutex' => $mutex,
+            'preload' => $preload
         );
         //设置播放器属性
         if(!empty($atts)){
