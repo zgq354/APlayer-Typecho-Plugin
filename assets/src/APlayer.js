@@ -263,12 +263,18 @@
                         const musicIndex = parseInt(listItem[i].getElementsByClassName('aplayer-list-index')[0].innerHTML) - 1;
                         if (musicIndex !== this.playIndex) {
                             this.setMusic(musicIndex);
+                            if (this.isMobile) {
+                                this.pause();
+                            }
+                            else {
+                                this.play();
+                            }
                         }
-                        if (this.isMobile) {
-                            this.pause();
+                        else if (this.audio.paused) {
+                            this.play();
                         }
                         else {
-                            this.play();
+                            this.pause();
                         }
                     });
                 }
