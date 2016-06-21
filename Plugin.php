@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.4.8
+ * @version 1.4.9
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -521,7 +521,7 @@ EOF;
                             'title' => $data['name'],
                             'album_name' => $data['album']['name'],
                             'artist' => $data['artists'][0]['name'],
-                            'location' => str_replace('http://m2', 'http://m1', $data['mp3Url']),
+                            'location' => str_replace('http://m', 'http://p', $data['mp3Url']),
                             'pic' => $data['album']['blurPicUrl'].'?param=106x106',
                             'lyric' => $lyric
                     );
