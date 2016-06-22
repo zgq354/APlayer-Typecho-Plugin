@@ -6,7 +6,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 
  * @package APlayer
  * @author ZGQ
- * @version 1.4.9
+ * @version 1.4.10
  * @dependence 13.12.12-*
  * @link https://github.com/zgq354/APlayer-Typecho-Plugin
  */
@@ -73,6 +73,11 @@ class APlayer_Plugin implements Typecho_Plugin_Interface
             'maintheme', null, '#e6d0b2',
             _t('默认主题颜色'), _t('播放器默认的主题颜色，如 #372e21、#75c、red、blue，该设定会被[player]标签中的theme属性覆盖，默认为 #e6d0b2'));
         $form->addInput($maintheme);
+
+        $nolyric = new Typecho_Widget_Helper_Form_Element_Text(
+            'nolyric', null, '找不到歌词',
+            _t('找不到歌词时显示的文字'), _t('找不到歌词时显示的文字'));
+        $form->addInput($nolyric);
 
         $mutex = new Typecho_Widget_Helper_Form_Element_Radio(
             'mutex', array('false'=>_t('是'),'true'=>_t('否')), 'true',
@@ -312,11 +317,16 @@ EOF;
         //输出代码
         $playerCode =  '<div id="player'.$id.'" class="aplayer">
         ';
+
+        //nolyric
+        $nolyric = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->nolyric;
+        if (!$nolyric) $nolyric = '找不到歌词';
+
         //歌词
         if (!empty($result)){
             foreach ($result as $k=>$v){
                 //歌词不存在的时候输出'no lyric'
-                $result[$k]['lrc'] = $v['lyric'] ? $v['lyric'] : "[00:00.00]no lyric\n[99:00.00] ";
+                $result[$k]['lrc'] = $v['lyric'] ? $v['lyric'] : "[00:00.00]$nolyric\n[99:00.00] ";
                 unset($result[$k]['cover']);
                 unset($result[$k]['lyric']);
                 unset($result[$k]['artist']);
@@ -436,7 +446,8 @@ EOF;
      * @return boolean|multitype:multitype:unknown Ambigous <>
      */
     private static function parse_netease($id, $type){
-        $key = 'netease_'.$type.'_'.$id;
+        //当id过长时md5避免缓存出错
+        $key = 'netease_'.$type.'_'.(strlen($id) > 20 ? md5($id) : $id);
         $result = self::cache_get($key);
         //列表更新周期
         $listexpire = Typecho_Widget::widget('Widget_Options')->plugin('APlayer')->listexpire;

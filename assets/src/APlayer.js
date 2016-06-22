@@ -66,7 +66,8 @@
             this.parseLrc = (arr) => {
                 let lrcs = [];
                 for (let k = 0; k < arr.length; k++) {
-                    const lyric = arr[k].split('\n');
+                    const lyric = arr[k][0].split('\n');
+                    const lrcoffset = arr[k][1];
                     let lrc = [];
                     const lyricLen = lyric.length;
                     for (let i = 0; i < lyricLen; i++) {
@@ -80,7 +81,7 @@
                             const timeLen = lrcTimes.length;
                             for (let j = 0; j < timeLen; j++) {
                                 const oneTime = /\[(\d{2}):(\d{2})\.(\d{2,3})]/.exec(lrcTimes[j]);
-                                const lrcTime = (oneTime[1]) * 60 + parseInt(oneTime[2]) + parseInt(oneTime[3]) / ((oneTime[3] + '').length === 2 ? 100 : 1000);
+                                const lrcTime = (oneTime[1]) * 60 + parseInt(oneTime[2]) + (parseInt(oneTime[3]) * ((oneTime[3] + '').length === 2 ? 10 : 1) - parseInt(lrcoffset)) / 1000;
                                 lrc.push([lrcTime, lrcText]);
                             }
                         }
@@ -152,16 +153,16 @@
                 if (this.option.showlrc === 1) {
                     if (this.multiple) {
                         for (i = 0; i < this.option.music.length; i++) {
-                            lrcs.push(this.option.music[i].lrc);
+                            lrcs.push([this.option.music[i].lrc, this.option.music[i].lrcoffset]);
                         }
                     }
                     else {
-                        lrcs.push(this.option.music.lrc);
+                        lrcs.push([this.option.music.lrc, this.option.music.lrcoffset]);
                     }
                 }
                 else if (this.option.showlrc === 2 || this.option.showlrc === true)  {
                     for (i = 0; i < this.element.getElementsByClassName('aplayer-lrc-content').length; i++) {
-                        lrcs.push(this.element.getElementsByClassName('aplayer-lrc-content')[i].innerHTML);
+                        lrcs.push([this.element.getElementsByClassName('aplayer-lrc-content')[i].innerHTML, 0]);
                     }
                 }
 
