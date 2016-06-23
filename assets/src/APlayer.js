@@ -67,7 +67,7 @@
                 let lrcs = [];
                 for (let k = 0; k < arr.length; k++) {
                     const lyric = arr[k][0].split('\n');
-                    const lrcoffset = arr[k][1];
+                    const lrcoffset = arr[k][1] ? arr[k][1] : 0;
                     let lrc = [];
                     const lyricLen = lyric.length;
                     for (let i = 0; i < lyricLen; i++) {
