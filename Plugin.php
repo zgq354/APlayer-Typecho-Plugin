@@ -840,6 +840,11 @@ EOF;
      */
     private static function is_really_writable($file)
     {
+        // Create cache directory if not exists
+        if (!file_exists($file))
+        {
+            mkdir($file, 0755);
+        }
         // If we're on a Unix server with safe_mode off we call is_writable
         if (DIRECTORY_SEPARATOR === '/' && (version_compare(PHP_VERSION, '5.4', '>=') OR ! ini_get('safe_mode')))
         {
